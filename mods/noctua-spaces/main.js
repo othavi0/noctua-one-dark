@@ -259,10 +259,11 @@ export default class Spaces extends View {
       const card = this.card(head, t, ps, all, trees, open);
       if (!open) return [card];
       // No band of its own: a 1 px guide in the repo's color ties the lines to the card.
+      // It comes last so a line's hover or selected fill paints under it, not over it.
       const ink = this.inkOf(head.w, t);
       return [card, v_flex().id(`trees-${head.w.id}`).relative().flex_none().mb(4)
-        .child(div().absolute().left(18).top(-4).bottom(13).w(1).bg(ink.line))
-        .children(trees.map((r) => this.worktree(r, t, ink)))];
+        .children(trees.map((r) => this.worktree(r, t, ink)))
+        .child(div().absolute().left(18).top(-4).bottom(13).w(1).bg(ink.line))];
     };
     const loading = m => {
       const layout = machines().find(k => k.name === m)?.layout;
@@ -383,6 +384,8 @@ export default class Spaces extends View {
   // It handles the mouse itself: the card selects on mouse up.
   wtButton(head, trees, open, t, ink) {
     const label = `${trees.length} worktree${trees.length > 1 ? "s" : ""}`;
+    // Closed over the shown worktree, it is the only mark of where you are.
+    const hides = !open && trees.some((r) => r.w.active);
     return h_flex()
       .id(`trees-button-${head.w.id}`)
       .h(20)
@@ -393,7 +396,8 @@ export default class Spaces extends View {
       .rounded(R)
       .text_size(11)
       .font_medium()
-      .text_color(open ? t.muted : t.dim)
+      .text_color(hides ? bright(t) : open ? t.muted : t.dim)
+      .when(hides, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.input).text_color(bright(t)))
       .tooltip(open ? `Hide ${label}` : `Show ${label}`)
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
