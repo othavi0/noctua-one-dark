@@ -8,6 +8,8 @@ import { spaces, panes, run, openOverlay, theme, window, shared, layout, setting
 // Corners are 4 px.
 const ICONS = "mods/noctua-chrome";
 const R = 4;
+// { space, panel, at }: show that panel when that space comes into view.
+const OPEN_PANEL = "noctua.panel.open";
 const bright = (t) => (settings()?.dark === false ? t.foreground : t.ansi15);
 
 function find(node, id) {
@@ -31,6 +33,17 @@ export default class Tabs extends View {
   syncPanel(space, panel, body, enabled) {
     if (!space || !panel) return;
     const now = panel.hidden ? null : body?.active ?? null;
+    // A panel another mod asked for (noctua-spaces' ±), applied once on the render that
+    // first sees it: that write and the space switch reach this mod in either order.
+    const asked = shared(OPEN_PANEL);
+    if (asked?.space === space.id && asked.at !== this.asked && Date.now() - asked.at < 2000 && enabled.includes(asked.panel)) {
+      this.asked = asked.at;
+      this.space = space.id;
+      this.pending = { want: asked.panel, until: Date.now() + 1000 };
+      run("layout.select", { stack: "panel-body", child: asked.panel });
+      run("layout.show", { id: "panel" });
+      return;
+    }
     if (space.id !== this.space) {
       const first = this.space === undefined;
       this.space = space.id; this.pending = null;
