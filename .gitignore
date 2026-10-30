@@ -1,0 +1,7 @@
+.impeccable/
+# Written by herdr-app check and the app; not part of the mods.
+gpui-kit.d.ts
+jsconfig.json
+
+# Worktrees do `claude --worktree`.
+.claude/worktrees/

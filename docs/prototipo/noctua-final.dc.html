@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Noctua final</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;600&family=JetBrains+Mono:wght@400;600&family=IBM+Plex+Mono:wght@400;600&family=Fira+Code:wght@400;600&display=swap">
+<style>
+body{margin:0}
+.nz{--canvas:#121212;--chrome:#1c1c1c;--bg:#242424;--raised:#292929;--sel:#2e2e2e;--hover:#3a3a3a;--active:#3a4a5c;--line:#2e2e2e;--line2:#3a3a3a;--fg:#abb2bf;--hi:#ffffff;--sub:#d0d4db;--soft:#c5ccd8;--dim:#949ca9;--info:#61afef;--warn:#e5c07b;--ok:#98c379;--err:#e06c75;--term:#56b6c2;--add-bg:#2b3327;--del-bg:#32252a;--ui:'Geist',system-ui,sans-serif;--a0:#242424;--a1:#e06c75;--a2:#98c379;--a3:#d19a66;--a4:#61afef;--a5:#c678dd;--a6:#56b6c2;--a7:#abb2bf;--a8:#5c6370;--a9:#e06c75;--a10:#98c379;--a11:#e5c07b;--a12:#61afef;--a13:#c678dd;--a14:#56b6c2;--a15:#ffffff;font-family:var(--ui);color:var(--fg);background:var(--canvas);display:flex;overflow:hidden;font-size:13px;position:relative;-webkit-font-smoothing:antialiased}
+.nz *{box-sizing:border-box}
+.col{display:flex;flex-direction:column;min-width:0;min-height:0}
+.lu{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.pv{width:14px;height:14px;flex:none;display:block}
+.btn{height:28px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;border:1px solid transparent;border-radius:var(--r);background:none;color:var(--soft);font:inherit;font-size:12.5px;white-space:nowrap;cursor:pointer}
+.btn:hover{background:var(--sel);color:var(--hi)}
+.btn.on{background:var(--sel);color:var(--hi);border-color:var(--line2)}
+.ibtn{width:28px;padding:0;justify-content:center;color:var(--dim)}
+.kbd{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border:1px solid var(--line2);border-radius:var(--r);color:var(--dim)}
+.mono{width:16px;height:16px;border-radius:var(--r);display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;flex:none;color:#121212}
+.grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:11.5px;color:var(--dim);font-variant-numeric:tabular-nums}
+.lbl{height:28px;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 14px;font-size:12px;font-weight:500;color:var(--dim)}
+.srch{flex:1;height:30px;display:flex;align-items:center;gap:8px;padding:0 10px;background:var(--canvas);border:1px solid var(--line2);border-radius:var(--r);color:var(--dim);font:inherit;font-size:12.5px;text-align:left}
+.card{margin:2px 6px;padding:7px 10px;border-radius:var(--r);display:flex;flex-direction:column;gap:2px}
+.card:hover{background:var(--sel)}
+.card.on{background:var(--active)}
+.c1{height:20px;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--soft);white-space:nowrap}
+.c2{font-size:13px;font-weight:600;color:var(--hi);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c3{height:18px;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dim);white-space:nowrap}
+.card.on .c3{color:var(--soft)}
+.st{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;font-variant-numeric:tabular-nums}
+.wt{height:26px;margin:0 6px;padding:0 10px 0 33px;display:flex;align-items:center;gap:7px;border-radius:var(--r);font-size:12px;color:var(--soft);white-space:nowrap}
+.wt:hover{background:var(--sel)}
+.act{display:inline-flex;align-items:center;gap:2px}
+.act button{height:22px;display:inline-flex;align-items:center;gap:4px;padding:0 6px;border:0;background:none;color:var(--soft);font:inherit;font-size:11.5px;border-radius:var(--r)}
+.act button:hover{background:var(--hover);color:var(--hi)}
+.gh{height:24px;display:flex;align-items:center;gap:6px;padding:0 14px;font-size:11.5px;font-weight:500}
+.gh span{color:var(--dim);font-weight:400}
+.ag{height:30px;margin:0 6px;padding:0 8px;display:flex;align-items:center;gap:9px;border-radius:var(--r);font-size:13px;color:var(--sub);white-space:nowrap}
+.ag:hover{background:var(--sel)}
+.ag.on{background:var(--sel);color:var(--hi)}
+.ag .t{color:var(--dim)}
+.bx{width:16px;height:16px;border-radius:var(--r);background:#3d2428;color:var(--err);font-size:10px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.spin{width:13px;height:13px;fill:none;stroke:var(--warn);stroke-width:2.2;stroke-linecap:round;flex:none}
+.tabs{height:38px;flex:none;display:flex;align-items:stretch;background:var(--chrome);border-bottom:1px solid var(--line)}
+.tab{display:flex;align-items:center;gap:8px;padding:0 8px 0 12px;min-width:140px;color:var(--dim);font:inherit;font-size:12.5px;white-space:nowrap;border:0;border-right:1px solid var(--line);background:none}
+.tab:hover{color:var(--sub);background:var(--sel)}
+.tab.on{background:var(--bg);color:var(--hi);margin-bottom:-1px}
+.tab .x{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--dim);border-radius:var(--r);margin-left:auto}
+.tab .x:hover{background:var(--hover);color:var(--hi)}
+.pane{background:var(--bg);border:0;border-radius:0;display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden}
+.pane.focus .ph{background:var(--sel)}
+.ph{height:28px;flex:none;display:flex;align-items:center;gap:8px;padding:0 3px 0 10px;font-size:12px;color:var(--dim);border-bottom:1px solid var(--line);white-space:nowrap;background:var(--chrome)}
+.ph b{color:var(--sub);font-weight:500}
+.pane.focus .ph b{color:var(--hi)}
+.ph .btn{height:22px;width:22px}
+.term{font-family:var(--mono);font-size:12.5px;line-height:19px;padding:10px 14px;overflow:hidden;flex:1;min-height:0}
+.term>div{white-space:pre;overflow:hidden;text-overflow:ellipsis;min-height:19px}
+.r{color:var(--a1)}.g{color:var(--a2)}.y{color:var(--a11)}.o{color:var(--a3)}.b{color:var(--a4)}.m{color:var(--a5)}.c{color:var(--a6)}.d{color:var(--dim)}.w{color:var(--hi)}.acc{color:var(--accent)}.bo{font-weight:600}.cl{color:#d97757}
+.term>.add{background:var(--add-bg);color:var(--a2)}.term>.del{background:var(--del-bg);color:var(--a1)}
+.term>.prompt{background:var(--sel);margin:0 -14px;padding:0 14px}
+.ask{border:1px solid var(--accent);border-radius:var(--r);padding:6px 12px;margin:6px 0;white-space:normal}
+.status{height:24px;flex:none;display:flex;align-items:center;gap:14px;padding:0 10px;background:var(--chrome);border-top:1px solid var(--line);font-size:11.5px;color:var(--dim);white-space:nowrap}
+.sq{width:6px;height:6px;display:inline-block;flex:none}
+.sw{display:inline-block;width:22px;height:12px;margin-right:3px;vertical-align:-1px;outline:1px solid var(--line2);outline-offset:-1px}
+.menu{position:absolute;background:var(--chrome);border:1px solid var(--line2);border-radius:var(--r);box-shadow:0 12px 32px rgba(0,0,0,.55);padding:4px;width:250px}
+.mh{height:26px;display:flex;align-items:center;padding:0 8px;font-size:11.5px;font-weight:500;color:var(--dim)}
+.mi{height:30px;display:flex;align-items:center;gap:10px;padding:0 8px;border-radius:var(--r);font-size:12.5px;color:var(--sub);white-space:nowrap}
+.mi:hover,.mi.on{background:var(--active);color:var(--hi)}
+.mi .k{margin-left:auto;font-size:11px;color:var(--dim)}
+.mi.on .k{color:var(--soft)}
+.msep{height:1px;background:var(--line);margin:4px 2px}
+.mi.off,.mi.off:hover{background:none;color:var(--dim)}
+.pri{height:32px;display:inline-flex;align-items:center;gap:8px;padding:0 10px;background:var(--accent);color:#121212;border:0;font:inherit;font-size:12.5px;font-weight:600;border-radius:var(--r) 0 0 var(--r);white-space:nowrap}
+.pri2{width:30px;padding:0;justify-content:center;border-left:1px solid rgba(0,0,0,.3);border-radius:0 var(--r) var(--r) 0}
+.tabs2{height:38px;flex:none;display:flex;align-items:stretch;gap:2px;padding:0 6px;background:var(--chrome);border-bottom:1px solid var(--line)}
+.t2{display:flex;align-items:center;gap:8px;padding:0 12px;font:inherit;font-size:12.5px;color:var(--dim);background:none;border:0;white-space:nowrap}
+.t2:hover{color:var(--sub)}
+.t2.on{color:var(--hi);box-shadow:inset 0 -1px 0 var(--accent)}
+.t2 .n{font-family:var(--mono);font-size:10.5px;color:var(--dim);border:1px solid var(--line2);padding:0 4px;border-radius:var(--r)}
+.comp{border:1px solid var(--line2);background:var(--canvas);border-radius:var(--r);padding:8px}
+.comp.on{border-color:var(--accent)}
+.chip{height:24px;display:inline-flex;align-items:center;gap:6px;padding:0 7px;border:1px solid var(--line2);border-radius:var(--r);background:var(--chrome);color:var(--soft);font:inherit;font-size:11.5px;white-space:nowrap}
+.chip.on{border-color:var(--accent);color:var(--hi)}
+.send{width:26px;height:24px;display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:var(--r);background:var(--accent);color:#121212}
+.tabs3{height:46px;flex:none;display:flex;align-items:stretch;background:var(--chrome);border-bottom:1px solid var(--line)}
+.t3{display:flex;align-items:center;gap:9px;padding:0 8px 0 12px;min-width:176px;font:inherit;background:none;border:0;border-right:1px solid var(--line);text-align:left;color:var(--dim)}
+.t3:hover{background:var(--sel)}
+.t3.on{background:var(--bg);box-shadow:inset 0 1px 0 var(--accent);margin-bottom:-1px}
+.t3 .tt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1}
+.t3 .a{font-size:12.5px;color:var(--sub);white-space:nowrap}
+.t3.on .a{color:var(--hi)}
+.t3 .s{font-size:11px;white-space:nowrap}
+.tabs4{height:40px;flex:none;display:flex;align-items:center;gap:4px;padding:0 8px;background:var(--chrome);border-bottom:1px solid var(--line)}
+.crumb{display:flex;align-items:center;gap:6px;padding:0 8px 0 4px;font-size:12.5px;color:var(--hi);font-weight:500;white-space:nowrap}
+.t4{height:28px;display:inline-flex;align-items:center;gap:7px;padding:0 10px;border:1px solid transparent;border-radius:var(--r);background:none;font:inherit;font-size:12.5px;color:var(--dim);white-space:nowrap}
+.t4:hover{background:var(--sel);color:var(--sub)}
+.t4.on{border-color:var(--accent);background:var(--bg);color:var(--hi)}
+.grp{display:inline-flex;border:1px solid var(--line2);border-radius:var(--r);overflow:hidden}
+.grp .btn{border-radius:0;height:26px}
+.grp .btn+.btn{border-left:1px solid var(--line2)}
+.res{height:30px;display:flex;align-items:center;gap:9px;padding:0 8px;border-radius:var(--r);font-size:12.5px;color:var(--sub);white-space:nowrap}
+.res.on{background:var(--active);color:var(--hi)}
+mark{background:none;color:var(--warn);font-weight:600}
+</style>
+</helmet>
+<div class="nz" style="--accent: {{accent}}; --mono: {{mono}}; --r: {{r}}; width: 1440px; height: 900px">
+
+  <aside class="col" style="width: 300px; flex: none; background: var(--chrome); border-right: 1px solid var(--line)">
+    <div style="height: 40px; flex: none; display: flex; align-items: center; gap: 9px; padding: 0 6px 0 14px">
+      <svg class="lu" viewBox="0 0 24 24" aria-hidden="true" style="width: 16px; height: 16px; color: var(--accent)"><circle cx="7.5" cy="12" r="4.5"/><circle cx="16.5" cy="12" r="4.5"/><path d="M3 5l3 2.5M21 5l-3 2.5"/></svg>
+      <span style="font-weight: 600; font-size: 13.5px; color: var(--hi); flex: 1">Herdr</span>
+      <button class="btn ibtn" aria-label="Recolher sidebar"><svg class="lu" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9.5 4v16"/></svg></button>
+    </div>
+    <div style="display: flex; gap: 4px; padding: 0 8px 8px; border-bottom: 1px solid var(--line)">
+      <button class="srch"><svg class="lu" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>Search<span class="kbd" style="margin-left: auto">Ctrl K</span></button>
+      <button class="btn ibtn" aria-label="Filtrar spaces" style="height: 30px; width: 30px"><svg class="lu" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4"/></svg></button>
+      <button class="btn ibtn" aria-label="New agent (Ctrl Shift T)" style="height: 30px; width: 30px; color: var(--hi)"><svg class="lu" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg></button>
+    </div>
+
+    <div class="lbl" style="margin-top: 4px">Spaces<button class="btn ibtn" aria-label="New space" style="height: 24px; width: 24px"><svg class="lu" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button></div>
+    <div class="card on">
+      <div class="c1"><span class="mono" style="background: #c678dd">N</span><span class="grow" style="color: var(--hi)">noctua-one-dark</span><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg><span class="st" style="color: #f6b0b6"><span class="bx">!</span>Needs you</span></div>
+      <div class="c2">Aplicar a paleta do noctua</div>
+      <div class="c3"><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><circle cx="6" cy="5.5" r="2"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="7.5" r="2"/><path d="M6 7.5v9M18 9.5c0 4.5-6.5 3.5-11 7.5"/></svg><span class="grow">main</span><img class="pv" src="/_blob/51602997f10f5544668d655ea94a1427" alt="Claude Code"></div>
+    </div>
+    <div class="card">
+      <div class="c1"><span class="mono" style="background: #61afef">C</span><span class="grow" style="color: var(--sub)">storefront</span><span class="st" style="color: var(--warn)"><svg class="spin" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" opacity=".3"/><path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5"/></svg>Working</span></div>
+      <div class="c2">Revisar o PR 214</div>
+      <div class="c3"><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><circle cx="6" cy="5.5" r="2"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="7.5" r="2"/><path d="M6 7.5v9M18 9.5c0 4.5-6.5 3.5-11 7.5"/></svg><span class="grow">main</span><img class="pv" src="/_blob/bd25286c13d0308c48f97cc66a027d75" alt="Codex"><img class="pv" src="/_blob/7f50aee56ed13dde28be6c2288d8f3b0" alt="Grok" style="background: #121212"></div>
+    </div>
+    <div class="wt"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px; color: var(--dim)"><path d="M18 19a5 5 0 0 1-5-5v8"/><path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/><circle cx="13" cy="12" r="2"/><circle cx="20" cy="19" r="2"/></svg><span class="grow">fix-cart-badge</span><span class="meta" style="color: var(--ok)">↑6</span><span class="meta" style="color: var(--err)">↓1</span><svg class="spin" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" opacity=".3"/><path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5"/></svg></div>
+    <div class="wt"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px; color: var(--dim)"><path d="M18 19a5 5 0 0 1-5-5v8"/><path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/><circle cx="13" cy="12" r="2"/><circle cx="20" cy="19" r="2"/></svg><span class="grow">feat-checkout-v2</span><span class="meta">±3</span><svg class="spin" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" opacity=".3"/><path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5"/></svg></div>
+    <div class="card">
+      <div class="c1"><span class="mono" style="background: #d19a66">D</span><span class="grow" style="color: var(--sub)">design-tokens</span><span class="st" style="color: var(--dim)"><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><circle cx="12" cy="12" r="8"/></svg>Idle</span></div>
+      <div class="c2" style="font-weight: 500; color: var(--sub)">Dark palette contrast pass</div>
+      <div class="c3"><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><circle cx="6" cy="5.5" r="2"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="7.5" r="2"/><path d="M6 7.5v9M18 9.5c0 4.5-6.5 3.5-11 7.5"/></svg><span class="grow">main</span><img class="pv" src="/_blob/51602997f10f5544668d655ea94a1427" alt="Claude Code"><img class="pv" src="/_blob/da2e28bce5e88213702cc3b020948057" alt="Pi" style="background: #121212"></div>
+    </div>
+    <div class="card" style="background: var(--sel)">
+      <div class="c1"><span class="mono" style="background: #98c379">P</span><span class="grow" style="color: var(--sub)">docs site</span><span class="act"><button aria-label="Pin"><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><button><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><path d="M20 6 9 17l-5-5"/></svg>Settle</button></span></div>
+      <div class="c2">Bundle size budget</div>
+      <div class="c3"><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><circle cx="6" cy="5.5" r="2"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="7.5" r="2"/><path d="M6 7.5v9M18 9.5c0 4.5-6.5 3.5-11 7.5"/></svg><span class="grow">main</span><img class="pv" src="/_blob/51602997f10f5544668d655ea94a1427" alt="Claude Code"></div>
+    </div>
+
+    <div class="lbl" style="margin-top: 6px; border-top: 1px solid var(--line); height: 34px">Agents<button class="btn ibtn" aria-label="Ordenar por prioridade" style="height: 24px; width: 24px"><svg class="lu" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></button></div>
+    <div class="gh" style="color: var(--err)">Needs you <span>1</span></div>
+    <div class="ag on"><img class="pv" src="/_blob/51602997f10f5544668d655ea94a1427" alt="Claude Code"><span class="grow">noctua-one-dark <span class="t">· tema</span></span><span class="meta">2m</span><span class="bx">!</span></div>
+    <div class="gh" style="color: var(--warn)">Working <span>2</span></div>
+    <div class="ag"><img class="pv" src="/_blob/bd25286c13d0308c48f97cc66a027d75" alt="Codex"><span class="grow">storefront <span class="t">· Revisar o PR 214</span></span><span class="meta">42s</span><svg class="spin" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" opacity=".3"/><path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5"/></svg></div>
+    <div class="ag"><img class="pv" src="/_blob/7f50aee56ed13dde28be6c2288d8f3b0" alt="Grok" style="background: #121212"><span class="grow">storefront <span class="t">· Checkout v2</span></span><span class="meta">3m</span><svg class="spin" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" opacity=".3"/><path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5"/></svg></div>
+    <div class="gh" style="color: var(--ok)">Done <span>1</span></div>
+    <div class="ag"><img class="pv" src="/_blob/51602997f10f5544668d655ea94a1427" alt="Claude Code"><span class="grow">docs site <span class="t">· Benchmark</span></span><span class="meta">1m</span><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px; color: var(--ok)"><path d="M20 6 9 17l-5-5"/></svg></div>
+    <div class="gh" style="color: var(--dim)">Idle <span>2</span></div>
+    <div class="ag" style="color: var(--soft)"><img class="pv" src="/_blob/51602997f10f5544668d655ea94a1427" alt="Claude Code"><span class="grow">~ <span class="t">· 1</span></span><span class="meta">10m</span><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px; color: var(--dim)"><circle cx="12" cy="12" r="8"/></svg></div>
+    <div class="ag" style="color: var(--soft)"><img class="pv" src="/_blob/da2e28bce5e88213702cc3b020948057" alt="Pi" style="background: #121212"><span class="grow">design-tokens <span class="t">· Contrast pass</span></span><span class="meta">14h</span><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px; color: var(--dim)"><circle cx="12" cy="12" r="8"/></svg></div>
+
+    <div style="flex: 1"></div>
+    <div style="border-top: 1px solid var(--line); padding: 6px; display: flex; align-items: center; gap: 2px">
+      <button class="btn ibtn" aria-label="Settings"><svg class="lu" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg></button>
+      <button class="btn ibtn" aria-label="Machines"><svg class="lu" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2.5"/><path d="M8.5 20h7M12 16v4"/></svg></button>
+      <span style="flex: 1"></span>
+      <span class="meta" style="padding-right: 8px">This computer</span>
+    </div>
+  </aside>
+
+  <main class="col" style="flex: 1">
+    <div class="tabs">
+      <button class="tab on"><img class="pv" src="/_blob/51602997f10f5544668d655ea94a1427" alt="">tema<span class="bx" style="width: 14px; height: 14px; font-size: 9px">!</span><span class="x" aria-label="Fechar aba"><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><path d="M18 6 6 18M6 6l12 12"/></svg></span></button>
+      <button class="tab" style="background: var(--sel); color: var(--sub)"><img class="pv" src="/_blob/bd25286c13d0308c48f97cc66a027d75" alt="">revisão<svg class="spin" viewBox="0 0 12 12"><circle cx="6" cy="6" r="4.5" opacity=".3"/><path d="M6 1.5a4.5 4.5 0 0 1 4.5 4.5"/></svg><span class="x" aria-label="Fechar aba"><svg class="lu" viewBox="0 0 24 24" style="width: 12px; height: 12px"><path d="M18 6 6 18M6 6l12 12"/></svg></span></button>
+      <button class="tab"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></svg>shell</button>
+      <div style="flex: 1"></div>
+      <div style="display: flex; align-items: center; gap: 2px; padding-right: 6px">
+        <button class="btn ibtn" aria-label="New tab (terminal ou agente)"><svg class="lu" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg></button>
+        <button class="btn"><svg class="lu" viewBox="0 0 24 24"><path d="M20 7h-3a2 2 0 0 1-2-2V2"/><path d="M9 18a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7l4 4v10a2 2 0 0 1-2 2Z"/><path d="M3 7.6v12.8A1.6 1.6 0 0 0 4.6 22h9.8"/></svg>Files</button>
+        <button class="btn"><svg class="lu" viewBox="0 0 24 24"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M11 18H8a2 2 0 0 1-2-2V9"/></svg>Changes<span class="meta">3</span></button>
+      </div>
+    </div>
+
+    <div style="flex: 1; display: flex; gap: 6px; padding: 0; min-height: 0; background: var(--canvas)">
+      <section class="pane focus" style="flex: 1.3">
+        <div class="ph"><img class="pv" src="/_blob/51602997f10f5544668d655ea94a1427" alt=""><b>Claude Code</b><span>~/Projects/noctua-one-dark</span><span style="flex: 1"></span>
+          <button class="btn ibtn" aria-label="Dividir à direita"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18"/></svg></button>
+          <button class="btn ibtn" aria-label="Zoom"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg></button>
+          <button class="btn ibtn" aria-label="Fechar painel"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="term">
+          <div><span class="cl bo">✻ Claude Code</span>  <span class="d">Opus 5.5 · high effort · Claude Max</span></div>
+          <div class="d">  ~/Projects/noctua-one-dark</div>
+          <div> </div>
+          <div class="prompt"><span class="d">&gt;</span> <span class="w">tira o padding em volta dos terminais, deixa só entre shells</span></div>
+          <div> </div>
+          <div><span class="g">●</span> <span class="bo">Read</span>(~/.config/herdr-app/mods/tabs/main.js)</div>
+          <div class="d">  ⎿  Read 388 lines</div>
+          <div> </div>
+          <div><span class="w">●</span> O bloco de trabalho perde o padding de 8 px: os terminais encostam na</div>
+          <div>  sidebar, nas abas e na barra de status. O gap de 6 px fica só entre</div>
+          <div>  painéis divididos, e a aba ativa perde a linha azul.</div>
+          <div> </div>
+          <div><span class="g">●</span> <span class="bo">Bash</span>(herdr-app do mod.clone '{"name":"tabs","as":"noctua-tabs"}')</div>
+          <div class="d">  ⎿  {"mod": "noctua-tabs"}</div>
+          <div> </div>
+          <div><span class="g">●</span> <span class="bo">Update</span>(layouts/noctua.json)</div>
+          <div class="d">  ⎿  Updated layouts/noctua.json with 1 addition and 1 removal</div>
+          <div class="del">     58 -          "padding": 8,</div>
+          <div class="add">     58 +          "padding": 0,</div>
+          <div class="d">──────────────────────────────────────────────────────────────────</div>
+          <div> <span class="bo">Edit file</span></div>
+          <div> Do you want to make this edit to <span class="bo">noctua.json</span>?</div>
+          <div> <span class="b">❯ 1. Yes</span></div>
+          <div>   2. Yes, allow all edits during this session <span class="d">(shift+tab)</span></div>
+          <div>   3. No, and tell Claude what to do differently <span class="d">(esc)</span></div>
+          <div class="d"><span class="c">Opus 5.5</span> · <span class="m">high</span> · ctx 44% · <span class="acc">⏵⏵</span> auto mode on (shift+tab to cycle)</div>
+        </div>
+      </section>
+      <div class="col" style="flex: 1; gap: 6px">
+      <section class="pane" style="flex: 1">
+        <div class="ph"><img class="pv" src="/_blob/bd25286c13d0308c48f97cc66a027d75" alt=""><b>Codex</b><span>~/.herdr/worktrees/storefront/fix-cart-badge</span><span style="flex: 1"></span>
+          <button class="btn ibtn" aria-label="Fechar painel"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="term">
+          <div><span class="w bo">&gt;_ Codex</span>  <span class="d">high · storefront</span></div>
+          <div> </div>
+          <div class="prompt"><span class="acc">›</span> <span class="w">revisa o PR 214 e roda os testes de pagamento</span></div>
+          <div> </div>
+          <div><span class="d">•</span> <span class="bo">Ran</span> <span class="c">bun test tests/billing.spec.ts</span></div>
+          <div>  <span class="d">└</span> <span class="g">✓</span> computes a tiered discount <span class="d">(12 ms)</span></div>
+          <div>    <span class="r">✗</span> applies an expired coupon <span class="d">(8 ms)</span></div>
+          <div>      <span class="d">Expected:</span> <span class="g">0</span>   <span class="d">Received:</span> <span class="r">1500</span></div>
+          <div> </div>
+          <div><span class="y">◦ Working</span> <span class="d">(42s · esc to interrupt)</span></div>
+        </div>
+      </section>
+      <section class="pane" style="flex: 1">
+        <div class="ph"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M12 19h8"/><path d="m4 17 6-6-6-6"/></svg><b>zsh</b><span>~/Projects/noctua-one-dark</span><span style="flex: 1"></span>
+          <button class="btn ibtn" aria-label="Fechar painel"><svg class="lu" viewBox="0 0 24 24" style="width: 13px; height: 13px"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="term">
+          <div><span class="b bo">noctua-one-dark</span> <span class="d">on</span> <span class="m">main</span> <span class="o">[+2]</span></div>
+          <div><span class="g">❯</span> herdr-app check mods/noctua-tabs</div>
+          <div><span class="g">ok</span>  noctua-tabs  1 render  0 erros</div>
+          <div><span class="g">❯</span> ./paleta.sh</div>
+          <div><span class="sw" style="background: var(--a0)"></span><span class="sw" style="background: var(--a1)"></span><span class="sw" style="background: var(--a2)"></span><span class="sw" style="background: var(--a3)"></span><span class="sw" style="background: var(--a4)"></span><span class="sw" style="background: var(--a5)"></span><span class="sw" style="background: var(--a6)"></span><span class="sw" style="background: var(--a7)"></span></div>
+          <div><span class="sw" style="background: var(--a8)"></span><span class="sw" style="background: var(--a9)"></span><span class="sw" style="background: var(--a10)"></span><span class="sw" style="background: var(--a11)"></span><span class="sw" style="background: var(--a12)"></span><span class="sw" style="background: var(--a13)"></span><span class="sw" style="background: var(--a14)"></span><span class="sw" style="background: var(--a15)"></span></div>
+          <div><span class="g">❯</span> <span style="background: var(--fg); color: var(--bg)"> </span></div>
+        </div>
+      </section>
+      </div>
+    </div>
+
+    <div class="status">
+      <span>This computer</span>
+      <span>6 agents · <span style="color: var(--err)">1 needs you</span></span>
+      <span style="flex: 1"></span>
+      <span>Ctrl Shift P commands</span>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#61afef","options":["#61afef","#56b6c2","#c678dd","#e5c07b"]},"cantos":{"editor":"enum","default":"0 (reto)","options":["0 (reto)","3 px (suave)","4 px (suave)"]},"mono":{"editor":"enum","default":"JetBrains Mono","options":["JetBrains Mono","Geist Mono","IBM Plex Mono","Fira Code"]},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const radius = { '0 (reto)': '0px', '3 px (suave)': '3px', '4 px (suave)': '4px' };
+    return {
+      accent: this.props.accent ?? '#61afef',
+      r: radius[this.props.cantos ?? '0 (reto)'] ?? '0px',
+      mono: "'" + (this.props.mono ?? 'JetBrains Mono') + "', monospace"
+    };
+  }
+}
+</script>
+</body>
+</html>

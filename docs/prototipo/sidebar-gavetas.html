@@ -1,0 +1,426 @@
+<title>Sidebar Noctua: botão de worktrees</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: 5 sidebars de 300 px lado a lado, cada uma com estado próprio, sobre o fundo canvas do app. */
+:root{
+  color-scheme:dark;
+  --canvas:#121212;--chrome:#1c1c1c;--bg:#242424;--hover:#2e2e2e;--selected:#3a4a5c;--border:#2e2e2e;--input:#3a3a3a;
+  --fg:#abb2bf;--muted:#c5ccd8;--dim:#949ca9;--bright:#ffffff;
+  --working:#e5c07b;--blocked:#e06c75;--done:#98c379;--idle:#949ca9;--accent:#61afef;
+  --ansi1:#e06c75;--ansi2:#98c379;--ansi3:#d19a66;--ansi4:#61afef;--ansi5:#c678dd;--ansi6:#56b6c2;
+  --ui:'Geist',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+body{background:var(--canvas);color:var(--fg);font-family:var(--ui);padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible{outline:1px solid var(--accent);outline-offset:-1px}
+.intro{max-width:72ch;display:flex;flex-direction:column;gap:6px;margin-bottom:20px}
+.intro h1{margin:0;font-size:18px;font-weight:600;color:var(--bright);text-wrap:balance}
+.intro p{margin:0;font-size:13px;line-height:1.55;color:var(--dim)}
+.row{display:flex;gap:28px;overflow-x:auto;padding-bottom:12px;align-items:flex-start}
+.col{flex:none;width:300px;display:flex;flex-direction:column;gap:10px}
+.cap{display:flex;flex-direction:column;gap:4px;min-height:124px}
+.cap b{font-size:13px;font-weight:600;color:var(--bright)}
+.cap span{font-size:12px;line-height:1.5;color:var(--dim)}
+.cap .reset{align-self:flex-start;font-size:11.5px;color:var(--accent)}
+
+/* A sidebar, nas medidas do layout noctua (300 px; topo 86; rodapé 44; spaces e agents meio a meio). */
+.sb{width:300px;height:940px;background:var(--chrome);border:1px solid var(--border);display:flex;flex-direction:column;font-size:13px;overflow:hidden;user-select:none}
+.ic{width:14px;height:14px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.brand{height:86px;flex:none;display:flex;flex-direction:column}
+.brand .top{height:46px;display:flex;align-items:center;gap:8px;padding:0 10px 0 14px}
+.logo{width:20px;height:20px;border-radius:5px;background:#2c2c2c;display:grid;place-items:center;color:var(--bright)}
+.brand .name{flex:1;font-weight:600;font-size:13.5px;color:var(--fg)}
+.ib{width:26px;height:26px;display:grid;place-items:center;color:var(--muted)}
+.ib:hover{background:var(--hover);color:var(--bright)}
+.search{display:flex;gap:4px;padding:0 8px 8px;border-bottom:1px solid var(--border)}
+.field{flex:1;height:30px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--input);color:var(--dim);font-size:12.5px}
+.kbd{margin-left:auto;font-size:10.5px;border:1px solid var(--input);padding:1px 5px;color:var(--dim)}
+
+.spaces{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+.head{height:28px;margin-top:4px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 6px 0 14px;font-size:12px;font-weight:500;color:var(--dim)}
+.list{flex:1;min-height:0;overflow-y:auto;padding:0 6px 10px}
+.list::-webkit-scrollbar{width:8px}.list::-webkit-scrollbar-thumb{background:var(--input)}
+
+/* card(): px 10, py 7, my 2, gap 2. */
+.card{display:flex;flex-direction:column;gap:2px;padding:7px 10px;margin:2px 0}
+.card:hover{background:var(--hover)}
+.card.on{background:var(--selected)}
+.l1{height:20px;display:flex;align-items:center;gap:7px;font-size:12px}
+.l1 .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.card.on .l1 .nm{color:var(--bright)}
+.ttl{font-size:13px;font-weight:600;color:var(--bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttl.quiet{font-weight:500;color:var(--muted)}
+.l3{height:18px;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dim)}
+.card.on .l3{color:var(--muted)}
+.l3 .br{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.n{font-size:11.5px;font-variant-numeric:tabular-nums;flex:none}
+.pin{display:none;color:var(--dim)}
+.card:hover .pin,.pin.kept{display:block}
+.prog{width:14px;height:14px;flex:none;display:block}
+
+/* Monograma: as 4 versões pedidas, todas com a letra no centro do quadrado. */
+.mono{width:16px;height:16px;flex:none;display:grid;place-items:center;font-size:9.5px;font-weight:700;line-height:1;border-radius:4px;padding-top:.5px}
+.m-tint{background:color-mix(in srgb,var(--c) 24%,var(--chrome));color:color-mix(in srgb,var(--c) 85%,white)}
+.m-matte{background:color-mix(in srgb,var(--c) 58%,var(--chrome));color:#121212}
+.m-ring{background:color-mix(in srgb,var(--c) 14%,var(--chrome));color:var(--c);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 45%,transparent)}
+.m-big{width:18px;height:18px;border-radius:5px;font-size:10px;background:color-mix(in srgb,var(--c) 24%,var(--chrome));color:color-mix(in srgb,var(--c) 85%,white)}
+
+/* worktree(): 26 px, pl 33, pr 10, gap 7. */
+.wt{height:26px;display:flex;align-items:center;gap:7px;padding:0 10px 0 33px;font-size:12px;color:var(--muted);width:100%;text-align:left}
+.wt:hover{background:var(--hover)}
+.wt.on{background:var(--selected);color:var(--bright)}
+.wt .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wt .ic{color:var(--dim);width:13px;height:13px}
+.sum{height:26px;display:flex;align-items:center;gap:7px;padding:0 10px 0 33px;font-size:12px;color:var(--dim);width:100%;text-align:left}
+.sum:hover{background:var(--hover);color:var(--muted)}
+.sum.has-on{background:color-mix(in srgb,var(--selected) 55%,var(--chrome));color:var(--muted)}
+.sum .lbl{flex:none}
+.sum .act{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--bright)}
+.sum .ch{width:11px;height:11px;color:var(--dim)}
+.chip{height:20px;display:inline-flex;align-items:center;gap:4px;padding:0 6px;border:1px solid var(--input);font-size:11px;color:var(--muted);flex:none}
+.chip:hover{background:var(--hover);color:var(--bright)}
+.chip.has-on{background:var(--selected);border-color:var(--selected);color:var(--bright)}
+.chip .ic{width:12px;height:12px}
+.tree{display:flex;align-items:stretch}
+.tree .lines{width:12px;margin-left:24px;flex:none;position:relative}
+.tree .lines::before{content:"";position:absolute;left:5px;top:0;bottom:0;border-left:1px solid var(--input)}
+.tree.last .lines::before{bottom:50%}
+.tree .lines::after{content:"";position:absolute;left:5px;top:50%;width:7px;border-top:1px solid var(--input)}
+.tree .wt{padding-left:4px}
+.wchips{display:flex;flex-wrap:wrap;gap:4px;padding:4px 10px 6px 33px}
+.wchip{height:22px;display:inline-flex;align-items:center;gap:5px;padding:0 7px;border:1px solid var(--input);font-size:11.5px;color:var(--muted);max-width:100%}
+.wchip:hover{background:var(--hover)}
+.wchip.on{background:var(--selected);border-color:var(--selected);color:var(--bright)}
+.wchip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fold{width:16px;height:16px;display:grid;place-items:center;color:var(--dim);flex:none;margin-left:-4px}
+.fold:hover{color:var(--bright)}
+
+/* Marcas de status (status() do mod). */
+.st{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;flex:none}
+.bang{width:16px;height:16px;display:grid;place-items:center;background:color-mix(in srgb,var(--blocked) 20%,transparent);color:var(--blocked);font-size:10px;font-weight:700;flex:none}
+.bang.s{width:14px;height:14px}
+.spin{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.sq{width:7px;height:7px;flex:none;margin:0 3px}
+
+/* Agents: border-top, cabeçalho de 41 px, grupos de 30 px, linhas de 30 px. */
+.agents{flex:1 1 0;min-height:0;display:flex;flex-direction:column;border-top:1px solid var(--border)}
+.agents .hd{height:41px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:14px 16px 5px;font-size:11.5px;font-weight:500;color:var(--dim)}
+.alist{flex:1;min-height:0;overflow-y:auto;padding:0 8px;display:flex;flex-direction:column}
+.gh{height:30px;flex:none;display:flex;align-items:center;gap:6px;padding:8px 8px 0;font-size:11px;font-weight:500;width:100%;text-align:left}
+.gh:hover .lb{filter:brightness(1.25)}
+.gh .c{color:var(--dim)}
+.gh .sp{flex:1}
+.gh .ch{width:11px;height:11px;color:var(--dim)}
+.ag{height:30px;flex:none;display:flex;align-items:center;gap:9px;padding:0 8px;font-size:13px;width:100%;text-align:left}
+.ag:hover{background:var(--hover)}
+.ag.on{background:var(--selected)}
+.ag .nm{flex:none;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--fg)}
+.ag.idle .nm{color:var(--muted)}
+.ag .more{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dim)}
+.ag .t{font-size:11px;color:var(--dim);flex:none}
+.shelf{margin-top:auto;border-top:1px solid var(--border);flex:none}
+.shelf .gh{padding-top:0;height:32px}
+.irow{height:30px;flex:none;display:flex;align-items:center;gap:8px;padding:0 8px;font-size:12px;color:var(--dim);width:100%;text-align:left;margin-top:6px}
+.irow:hover{background:var(--hover);color:var(--muted)}
+.stack{display:flex}
+.stack .prog{margin-left:-4px;outline:2px solid var(--chrome)}
+.stack .prog:first-child{margin-left:0}
+.irow .sp{flex:1}
+
+.foot{height:44px;flex:none;display:flex;align-items:center;gap:2px;padding:0 6px;border-top:1px solid var(--border);color:var(--muted)}
+.foot .who{margin-left:auto;padding-right:8px;font-size:12px;color:var(--dim)}
+
+/* Botão de worktrees: 4 desenhos, mesma posição e mesmo comportamento. */
+.wb{height:22px;display:inline-flex;align-items:center;gap:5px;padding:0 6px;font-size:11px;font-weight:500;color:var(--muted);border-radius:4px;flex:none;transition:background-color .12s ease,color .12s ease}
+.wb .ic{width:12px;height:12px}
+.wb .rot{width:10px;height:10px;color:var(--dim);transition:transform .15s ease}
+.wb.open .rot{transform:rotate(90deg)}
+.wb .cnt{font-variant-numeric:tabular-nums}
+.wb-a:hover{background:var(--hover);color:var(--bright)}
+.wb-a.open{background:var(--input);color:var(--bright)}
+.wb-a.has-on{background:color-mix(in srgb,var(--selected) 75%,var(--chrome));color:var(--bright)}
+.wb-b{background:color-mix(in srgb,var(--input) 60%,var(--chrome));padding:0 7px 0 6px;gap:6px}
+.wb-b:hover{background:var(--input);color:var(--bright)}
+.wb-b.open{background:var(--selected);color:var(--bright)}
+.dots{display:inline-flex;gap:2px}
+.dots i{width:5px;height:10px;border-radius:1px;background:color-mix(in srgb,var(--dim) 45%,transparent)}
+.dots i.working{background:var(--working)}.dots i.done{background:var(--done)}.dots i.blocked{background:var(--blocked)}
+.dots i.on{background:var(--accent)}
+.wb-c{padding:0 4px;color:var(--dim)}
+.wb-c:hover{background:var(--hover);color:var(--bright)}
+.wb-c.open{color:var(--bright)}
+.wb-c.has-on{color:var(--bright)}
+.badge-wrap{position:relative;display:inline-grid;place-items:center;width:18px;height:18px}
+.badge-wrap .ic{width:14px;height:14px}
+.badge-wrap b{position:absolute;right:-4px;top:-3px;min-width:12px;height:12px;padding:0 3px;border-radius:6px;background:var(--muted);color:var(--chrome);font-size:8.5px;font-weight:700;line-height:12px;text-align:center}
+.wb-c.has-on .badge-wrap b{background:var(--accent);color:#121212}
+.wb-d{padding:0;gap:0;border:1px solid var(--input);height:22px;overflow:hidden}
+.wb-d .seg{display:inline-flex;align-items:center;gap:5px;height:100%;padding:0 6px}
+.wb-d .seg+.seg{border-left:1px solid var(--input);padding:0 4px}
+.wb-d:hover{border-color:color-mix(in srgb,var(--muted) 45%,var(--input));color:var(--bright)}
+.wb-d.open{background:var(--hover);color:var(--bright)}
+.wb-d.has-on .seg:first-child{background:color-mix(in srgb,var(--selected) 75%,var(--chrome));color:var(--bright)}
+/* Worktrees abertos: linhas soltas ou com guia de 1 px ligando ao cartão. */
+.wtbox.guide{position:relative}
+.wtbox.guide::before{content:"";position:absolute;left:18px;top:0;bottom:13px;border-left:1px solid var(--input)}
+.wtbox.guide .wt{padding-left:33px}
+.wtbox.inset{background:color-mix(in srgb,var(--canvas) 45%,var(--chrome));margin:0 0 4px;padding:2px 0}
+</style>
+
+<div class="intro">
+  <h1>Sidebar do noctua: quatro botões de worktrees</h1>
+  <p>Todas usam o funcionamento da versão 2: o botão fica no fim da linha da branch e abre os worktrees embaixo do cartão. Todas têm o monograma em tinta e os agentes Idle na gaveta do pé. Muda só o desenho do botão e como os worktrees aparecem abertos. Clique nos botões e em Idle; cada coluna guarda o próprio estado.</p>
+</div>
+<div class="row" id="row"></div>
+
+<script>
+const ICON = {
+  spinner: '<svg class="ic spin" viewBox="0 0 24 24" style="width:13px;height:13px;stroke-width:3.2;color:var(--working)"><circle cx="12" cy="12" r="9.4" stroke-opacity=".24"/><path d="M12 2.6a9.4 9.4 0 0 1 9.4 9.4"/></svg>',
+  check: '<svg class="ic" viewBox="0 0 24 24" style="width:13px;height:13px;color:var(--done)"><path d="M20 6 9 17l-5-5"/></svg>',
+  circle: '<svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px;color:var(--idle)"><circle cx="12" cy="12" r="8"/></svg>',
+  chevR: '<svg class="ic ch" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
+  chevD: '<svg class="ic ch" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
+  branch: '<svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M15 6a9 9 0 0 0-9 9V3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/></svg>',
+  wt: '<svg class="ic" viewBox="0 0 24 24"><path d="M18 19a5 5 0 0 1-5-5v8"/><path d="M9 20H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H20a2 2 0 0 1 2 2v5"/><circle cx="13" cy="12" r="2"/><circle cx="20" cy="19" r="2"/></svg>',
+  pin: '<svg class="ic" viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>',
+  plus: '<svg class="ic" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></svg>',
+  search: '<svg class="ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>',
+  filter: '<svg class="ic" viewBox="0 0 24 24"><path d="M3 6h18M7 12h10M10 18h4"/></svg>',
+  pen: '<svg class="ic" viewBox="0 0 24 24"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg>',
+  sidebar: '<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9.5 4v16"/></svg>',
+  clock: '<svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>',
+  gear: '<svg class="ic" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>',
+  monitor: '<svg class="ic" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2.5"/><path d="M8.5 20h7M12 16v4"/></svg>',
+};
+const PROG = {
+  claude: '<svg class="prog" viewBox="0 0 24 24" aria-label="Claude Code"><path fill-rule="evenodd" clip-rule="evenodd" fill="#D97757" d="M20.998 10.949H24v3.102h-3v3.028h-1.487V20H18v-2.921h-1.487V20H15v-2.921H9V20H7.488v-2.921H6V20H4.487v-2.921H3V14.05H0V10.95h3V5h17.998v5.949zM6 10.949h1.488V8.102H6v2.847zm10.51 0H18V8.102h-1.49v2.847z"/></svg>',
+  codex: '<svg class="prog" viewBox="0 0 24 24" aria-label="Codex"><path d="M19.503 0H4.496A4.496 4.496 0 000 4.496v15.007A4.496 4.496 0 004.496 24h15.007A4.496 4.496 0 0024 19.503V4.496A4.496 4.496 0 0019.503 0z" fill="#fff"></path><path d="M9.064 3.344a4.578 4.578 0 012.285-.312c1 .115 1.891.54 2.673 1.275.01.01.024.017.037.021a.09.09 0 00.043 0 4.55 4.55 0 013.046.275l.047.022.116.057a4.581 4.581 0 012.188 2.399c.209.51.313 1.041.315 1.595a4.24 4.24 0 01-.134 1.223.123.123 0 00.03.115c.594.607.988 1.33 1.183 2.17.289 1.425-.007 2.71-.887 3.854l-.136.166a4.548 4.548 0 01-2.201 1.388.123.123 0 00-.081.076c-.191.551-.383 1.023-.74 1.494-.9 1.187-2.222 1.846-3.711 1.838-1.187-.006-2.239-.44-3.157-1.302a.107.107 0 00-.105-.024c-.388.125-.78.143-1.204.138a4.441 4.441 0 01-1.945-.466 4.544 4.544 0 01-1.61-1.335c-.152-.202-.303-.392-.414-.617a5.81 5.81 0 01-.37-.961 4.582 4.582 0 01-.014-2.298.124.124 0 00.006-.056.085.085 0 00-.027-.048 4.467 4.467 0 01-1.034-1.651 3.896 3.896 0 01-.251-1.192 5.189 5.189 0 01.141-1.6c.337-1.112.982-1.985 1.933-2.618.212-.141.413-.251.601-.33.215-.089.43-.164.646-.227a.098.098 0 00.065-.066 4.51 4.51 0 01.829-1.615 4.535 4.535 0 011.837-1.388zm3.482 10.565a.637.637 0 000 1.272h3.636a.637.637 0 100-1.272h-3.636zM8.462 9.23a.637.637 0 00-1.106.631l1.272 2.224-1.266 2.136a.636.636 0 101.095.649l1.454-2.455a.636.636 0 00.005-.64L8.462 9.23z" fill="url(#cxg)"></path><defs><linearGradient gradientUnits="userSpaceOnUse" id="cxg" x1="12" x2="12" y1="3" y2="21"><stop stop-color="#B1A7FF"></stop><stop offset=".5" stop-color="#7A9DFF"></stop><stop offset="1" stop-color="#3941FF"></stop></linearGradient></defs></svg>',
+};
+
+// Dados de exemplo tirados da sua sidebar de hoje, com mais worktrees e agentes para cada estado aparecer.
+const SPACES = [
+  { id: "sf", name: "storefront", color: "ansi3", status: "working", title: "Persistent cart for guests", branch: "main", progs: ["claude", "codex"], worktrees: [
+    { id: "sf-1", name: "feat-checkout-v2", ahead: 9, behind: 1, status: "working" },
+    { id: "sf-2", name: "fix-cart-badge", ahead: 6, behind: 1, status: "done" },
+    { id: "sf-3", name: "fix-coupon-expiry", dirty: 2, status: null },
+    { id: "sf-4", name: "chore-deps-october", status: null },
+    { id: "sf-5", name: "spike-search-index", ahead: 1, status: null },
+  ] },
+  { id: "doc", name: "api-gateway", color: "ansi4", status: "idle", title: "Claude Code", branch: "main", dirty: 1, progs: ["claude"], worktrees: [
+    { id: "doc-1", name: "gateway-quotas", status: "idle", active: true },
+    { id: "doc-2", name: "gateway-metrics", ahead: 2, status: null },
+  ] },
+  { id: "home1", name: "~", color: "ansi5", pinned: true, title: "fix-cart-badge", branch: null, progs: [], worktrees: [] },
+  { id: "des", name: "design-tokens", color: "ansi2", status: "idle", title: "Dark palette contrast pass", branch: "main", dirty: 1, progs: ["claude"], worktrees: [] },
+  { id: "home2", name: "~", color: "ansi6", title: "zsh", branch: null, progs: [], worktrees: [] },
+  { id: "music", name: "Music", color: "ansi3", title: "zsh", branch: "main", progs: [], worktrees: [] },
+];
+const AGENTS = [
+  { id: "a1", prog: "claude", space: "noctua-one-dark", more: "tema", t: "2m", status: "blocked" },
+  { id: "a2", prog: "claude", space: "storefront", more: "Persistent cart for guests", t: "15m", status: "working" },
+  { id: "a3", prog: "codex", space: "feat-checkout-v2", more: "Revisar o PR 214", t: "42s", status: "working" },
+  { id: "a4", prog: "codex", space: "fix-cart-badge", more: "Testes de pagamento", t: "1m", status: "done" },
+  { id: "a5", prog: "claude", space: "noctua-one-dark", more: "", t: "1h", status: "idle", focused: true },
+  { id: "a6", prog: "claude", space: "design-tokens", more: "Dark palette contrast", t: "14h", status: "idle" },
+  { id: "a7", prog: "codex", space: "gateway-quotas", more: "Quota per API key", t: "14h", status: "idle" },
+  { id: "a8", prog: "claude", space: "api-gateway", more: "Claude Code", t: "14h", status: "idle" },
+];
+const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
+const WORD = { blocked: "Needs you", working: "Working", done: "Done", idle: "Idle" };
+const SECTION = { blocked: ["Needs you", "blocked"], working: ["Working", "working"], done: ["Done", "done"] };
+
+// mono: monograma; wt: como a gaveta de worktrees fecha e abre; idle: onde ficam os ociosos.
+const VARIANTS_OLD = [
+  { id: "v1", name: "1. Linha de resumo", note: "Fechado, uma linha de 26 px: quantos worktrees, os status e o worktree ativo. Monograma em tinta suave.", mono: "m-tint", wt: "summary", idle: "header" },
+  { id: "v2", name: "2. Chip no cartão", note: "O contador vira um chip no fim da linha da branch, sem linha extra. Monograma fosco com letra escura.", mono: "m-matte", wt: "chip", idle: "header" },
+  { id: "v3", name: "3. Pasta com árvore", note: "Chevron antes do monograma, como pasta. Aberto, os worktrees saem com linhas de árvore. Ociosos numa gaveta no pé.", mono: "m-ring", wt: "folder", idle: "shelf" },
+  { id: "v4", name: "4. Só o que importa", note: "Fechado, mostra só worktrees ativos, trabalhando ou prontos, e uma linha \"+N\" para os outros. Ociosos numa linha só.", mono: "m-tint", wt: "important", idle: "compact" },
+  { id: "v5", name: "5. Chips de worktree", note: "Aberto, os worktrees viram chips lado a lado em vez de linhas. Monograma de 18 px. Ociosos na gaveta do pé.", mono: "m-big", wt: "chips", idle: "shelf" },
+];
+const VARIANTS = [
+  { id: "v1", name: "A. Discreto", note: "Ícone, número e os status, sem fundo. Hover e aberto ganham fundo cinza; o chevron gira ao abrir. Abertos, os worktrees ficam em linhas soltas.", mono: "m-tint", wt: "chip", btn: "a", idle: "shelf", box: "" },
+  { id: "v2", name: "B. Barras de status (escolhida)", note: "No máximo 3 barras: o worktree em que você está (azul) e os de status mais urgente; o número conta todos. Sem borda de destaque. Abertos, os worktrees ficam numa faixa um tom mais escura.", mono: "m-tint", wt: "chip", btn: "b", idle: "shelf", box: "inset" },
+  { id: "v3", name: "C. Ícone com contador", note: "Só o ícone de worktree com o número num selo, como nos apps de chat; o selo fica azul quando esconde o worktree ativo. Abertos, uma guia de 1 px liga os worktrees ao cartão.", mono: "m-tint", wt: "chip", btn: "c", idle: "shelf", box: "guide" },
+  { id: "v4", name: "D. Botão dividido", note: "Rótulo e chevron em dois segmentos com borda de 1 px, como um botão de menu. O segmento do rótulo fica azulado quando esconde o ativo. Abertos com a guia de 1 px.", mono: "m-tint", wt: "chip", btn: "d", idle: "shelf", box: "guide" },
+];
+const state = Object.fromEntries(VARIANTS.map(v => [v.id, { open: new Set(), idleOpen: false }]));
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function monogram(sp, style) {
+  return `<span class="mono ${style}" style="--c:var(--${sp.color})">${esc([...sp.name][0].toUpperCase())}</span>`;
+}
+
+function status(st, word) {
+  if (!st) return "";
+  const mark = st === "blocked" ? `<span class="bang">!</span>` : st === "working" ? ICON.spinner : st === "done" ? ICON.check : ICON.circle;
+  return word ? `<span class="st" style="color:var(--${st})">${mark}${WORD[st]}</span>` : mark;
+}
+
+function counts(g) {
+  return [
+    g.ahead ? `<span class="n" style="color:var(--done)">↑${g.ahead}</span>` : "",
+    g.behind ? `<span class="n" style="color:var(--blocked)">↓${g.behind}</span>` : "",
+    g.dirty ? `<span class="n" style="color:var(--dim)">±${g.dirty}</span>` : "",
+  ].join("");
+}
+
+// Os status dos worktrees escondidos: um ícone e quantos, do mais urgente ao menos.
+function tally(list) {
+  return ["blocked", "done", "working"].map(st => {
+    const k = list.filter(w => w.status === st).length;
+    return k ? `<span class="st" style="color:var(--${st})">${status(st, false)}${k > 1 ? k : ""}</span>` : "";
+  }).join("");
+}
+
+function worktree(w, extra = "") {
+  return `<button class="wt${w.active ? " on" : ""}" ${extra}>${ICON.wt}<span class="nm">${esc(w.name)}</span>${counts(w)}${w.status ? status(w.status, false) : ""}</button>`;
+}
+
+// No máximo 3 barras: o worktree ativo e os de status mais urgente primeiro, na ordem da lista.
+function bars(list) {
+  const score = w => (w.active ? 10 : 0) + (RANK[w.status] ?? 0);
+  const keep = new Set([...list].sort((a, b) => score(b) - score(a)).slice(0, 3));
+  return list.filter(w => keep.has(w));
+}
+
+// O botão que abre a gaveta, nos 4 desenhos.
+function wtButton(sp, btn, open, hidesActive, toggle) {
+  const list = sp.worktrees;
+  const cls = `wb wb-${btn}${open ? " open" : ""}${hidesActive ? " has-on" : ""}`;
+  const rot = `<svg class="ic rot" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>`;
+  const label = `${list.length} worktree${list.length > 1 ? "s" : ""} de ${esc(sp.name)}`;
+  const attrs = `${toggle} aria-expanded="${open}" aria-label="${open ? "Fechar" : "Abrir"} ${label}" title="${label}"`;
+  if (btn === "a") return `<button class="${cls}" ${attrs}>${ICON.wt}<span class="cnt">${list.length}</span>${open ? "" : tally(list)}${rot}</button>`;
+  if (btn === "b") return `<button class="${cls}" ${attrs}><span class="dots">${bars(list).map(w => `<i class="${w.status ?? ""}${w.active ? " on" : ""}"></i>`).join("")}</span><span class="cnt">${list.length}</span>${rot}</button>`;
+  if (btn === "c") return `<button class="${cls}" ${attrs}>${open ? "" : tally(list)}<span class="badge-wrap">${ICON.wt}<b>${list.length}</b></span></button>`;
+  return `<button class="${cls}" ${attrs}><span class="seg">${open ? ICON.wt : (tally(list) || ICON.wt)}<span class="cnt">${list.length}</span></span><span class="seg">${rot}</span></button>`;
+}
+
+function card(sp, v, s) {
+  const quiet = !sp.status || sp.status === "idle";
+  const n = sp.worktrees.length;
+  const open = s.open.has(sp.id);
+  const hidesActive = !open && sp.worktrees.some(w => w.active);
+  const toggle = `data-act="wt" data-space="${sp.id}"`;
+  const folder = v.wt === "folder" && n
+    ? `<button class="fold" ${toggle} aria-label="${open ? "Fechar" : "Abrir"} worktrees de ${esc(sp.name)}">${open ? ICON.chevD : ICON.chevR}</button>` : "";
+  const folderBadge = v.wt === "folder" && n && !open
+    ? `<span class="chip${hidesActive ? " has-on" : ""}" style="height:18px">${ICON.wt}${n}${tally(sp.worktrees)}</span>` : "";
+  const chip = v.wt === "chip" && n ? wtButton(sp, v.btn, open, hidesActive, toggle) : "";
+  return `<div class="card">
+    <div class="l1">${folder}${monogram(sp, v.mono)}<span class="nm">${esc(sp.name)}</span>${folderBadge}
+      <span class="pin${sp.pinned ? " kept" : ""}">${ICON.pin}</span>${status(sp.status, true)}</div>
+    ${sp.title ? `<div class="ttl${quiet ? " quiet" : ""}">${esc(sp.title)}</div>` : ""}
+    <div class="l3">${ICON.branch}<span class="br">${esc(sp.branch ?? "no repo")}</span>${counts(sp)}${sp.progs.map(p => PROG[p]).join("")}${chip}</div>
+  </div>`;
+}
+
+// A gaveta de worktrees de um space, em cada um dos 5 jeitos.
+function worktrees(sp, v, s) {
+  const list = sp.worktrees;
+  if (!list.length) return "";
+  const open = s.open.has(sp.id);
+  const toggle = `data-act="wt" data-space="${sp.id}"`;
+  const active = list.find(w => w.active);
+  if (v.wt === "summary" || (v.wt === "chips" && !open)) {
+    const sum = `<button class="sum${!open && active ? " has-on" : ""}" ${toggle} aria-expanded="${open}">${open ? ICON.chevD : ICON.chevR}${ICON.wt}<span class="lbl">${list.length} worktrees</span><span class="act">${!open && active ? esc(active.name) : ""}</span>${open ? "" : tally(list)}</button>`;
+    if (!open) return sum;
+    if (v.wt === "chips") return sum;
+    return sum + list.map(w => worktree(w, `style="padding-left:45px"`)).join("");
+  }
+  if (v.wt === "chips") {
+    return `<button class="sum" ${toggle} aria-expanded="true">${ICON.chevD}${ICON.wt}<span class="lbl">${list.length} worktrees</span><span class="act"></span></button>
+      <div class="wchips">${list.map(w => `<span class="wchip${w.active ? " on" : ""}">${w.status ? status(w.status, false) : ICON.wt}<span class="nm">${esc(w.name)}</span>${counts(w)}</span>`).join("")}</div>`;
+  }
+  if (v.wt === "chip") return open ? `<div class="wtbox ${v.box}">${list.map(w => worktree(w)).join("")}</div>` : "";
+  if (v.wt === "folder") {
+    if (!open) return "";
+    return list.map((w, i) => `<div class="tree${i === list.length - 1 ? " last" : ""}"><span class="lines"></span>${worktree(w)}</div>`).join("");
+  }
+  if (v.wt === "important") {
+    const shown = open ? list : list.filter(w => w.active || (w.status && w.status !== "idle"));
+    const hidden = list.length - shown.length;
+    const more = open
+      ? `<button class="sum" ${toggle} aria-expanded="true">${ICON.chevD}<span class="lbl">Mostrar só os ativos</span></button>`
+      : hidden ? `<button class="sum" ${toggle} aria-expanded="false">${ICON.chevR}<span class="lbl">+${hidden} worktree${hidden > 1 ? "s" : ""} parado${hidden > 1 ? "s" : ""}</span></button>` : "";
+    return shown.map(w => worktree(w)).join("") + more;
+  }
+  return "";
+}
+
+function agentRow(a) {
+  const mark = a.status === "blocked" ? `<span class="bang s">!</span>`
+    : a.status === "working" ? ICON.spinner
+    : a.status === "done" ? `<span class="sq" style="background:var(--done)"></span>`
+    : `<span class="sq" style="border:1.5px solid var(--idle)"></span>`;
+  return `<button class="ag${a.focused ? " on" : ""}${a.status === "idle" ? " idle" : ""}">${PROG[a.prog]}<span class="nm">${esc(a.space)}</span><span class="more">${a.more ? "· " + esc(a.more) : ""}</span><span class="t">${a.t}</span>${mark}</button>`;
+}
+
+function agents(v, s) {
+  const groups = ["blocked", "working", "done"].map(st => {
+    const members = AGENTS.filter(a => a.status === st);
+    if (!members.length) return "";
+    const [label, color] = SECTION[st];
+    return `<div class="gh"><span class="lb" style="color:var(--${color})">${label}</span><span class="c">${members.length}</span></div>` + members.map(agentRow).join("");
+  }).join("");
+  const idle = AGENTS.filter(a => a.status === "idle");
+  // O agente em foco continua visível com a gaveta fechada, como a thread aberta no T3.
+  const peek = s.idleOpen ? idle : idle.filter(a => a.focused);
+  const ch = s.idleOpen ? ICON.chevD : ICON.chevR;
+  let idleBlock = "";
+  if (v.idle === "header") {
+    idleBlock = `<button class="gh" data-act="idle" aria-expanded="${s.idleOpen}"><span class="lb" style="color:var(--dim)">Idle</span><span class="c">${idle.length}</span><span class="sp"></span>${ch}</button>` + peek.map(agentRow).join("");
+  } else if (v.idle === "shelf") {
+    idleBlock = `<div class="shelf"><button class="gh" data-act="idle" aria-expanded="${s.idleOpen}"><span class="lb" style="color:var(--dim)">Idle</span><span class="c">${idle.length}</span><span class="sp"></span>${s.idleOpen ? ICON.chevD : `<svg class="ic ch" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>`}</button>${peek.map(agentRow).join("")}</div>`;
+  } else {
+    idleBlock = s.idleOpen
+      ? `<button class="gh" data-act="idle" aria-expanded="true"><span class="lb" style="color:var(--dim)">Idle</span><span class="c">${idle.length}</span><span class="sp"></span>${ICON.chevD}</button>` + idle.map(agentRow).join("")
+      : peek.map(agentRow).join("") + `<button class="irow" data-act="idle" aria-expanded="false"><span class="stack">${idle.map(a => PROG[a.prog]).join("")}</span><span>${idle.length} idle</span><span class="sp"></span>${ICON.chevR}</button>`;
+  }
+  return `<div class="agents"><div class="hd">Agents${ICON.clock}</div><div class="alist">${groups}${idleBlock}</div></div>`;
+}
+
+function sidebar(v) {
+  const s = state[v.id];
+  return `<div class="sb" data-variant="${v.id}">
+    <div class="brand">
+      <div class="top"><span class="logo">${ICON.monitor.replace('class="ic"', 'class="ic" style="width:12px;height:12px"')}</span><span class="name">Herdr</span><span class="ib">${ICON.sidebar}</span></div>
+      <div class="search"><span class="field">${ICON.search}Search<span class="kbd">Ctrl Shift K</span></span><span class="ib" style="width:30px;height:30px">${ICON.filter}</span><span class="ib" style="width:30px;height:30px">${ICON.pen}</span></div>
+    </div>
+    <div class="spaces"><div class="head">Spaces<span class="ib" style="width:24px;height:24px">${ICON.plus}</span></div>
+      <div class="list">${SPACES.map(sp => card(sp, v, s) + worktrees(sp, v, s)).join("")}</div></div>
+    ${agents(v, s)}
+    <div class="foot"><span class="ib">${ICON.gear}</span><span class="ib">${ICON.monitor}</span><span class="who">This computer</span></div>
+  </div>`;
+}
+
+function column(v) {
+  return `<section class="col" id="${v.id}"><div class="cap"><b>${v.name}</b><span>${esc(v.note)}</span><button class="reset" data-act="reset">Fechar tudo</button></div>${sidebar(v)}</section>`;
+}
+
+const row = document.getElementById("row");
+function paint(id) {
+  const v = VARIANTS.find(x => x.id === id);
+  const el = document.getElementById(id);
+  const scroll = [...el.querySelectorAll(".list,.alist")].map(n => n.scrollTop);
+  el.outerHTML = column(v);
+  document.getElementById(id).querySelectorAll(".list,.alist").forEach((n, i) => { n.scrollTop = scroll[i] ?? 0; });
+}
+row.innerHTML = VARIANTS.map(column).join("");
+row.addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (!b) return;
+  const id = b.closest(".col").id;
+  const s = state[id];
+  if (b.dataset.act === "wt") s.open.has(b.dataset.space) ? s.open.delete(b.dataset.space) : s.open.add(b.dataset.space);
+  if (b.dataset.act === "idle") s.idleOpen = !s.idleOpen;
+  if (b.dataset.act === "reset") { s.open.clear(); s.idleOpen = false; }
+  paint(id);
+});
+</script>
