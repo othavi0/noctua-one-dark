@@ -13,6 +13,8 @@ const ICONS = "mods/noctua-chrome";
 const R = 4;
 const bright = (t) => (settings()?.dark === false ? t.foreground : t.ansi15);
 const PINS = "noctua.spaces.pinned";
+// { space, panel, at }: noctua-tabs shows that panel when that space comes into view.
+const OPEN_PANEL = "noctua.panel.open";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -335,6 +337,31 @@ export default class Spaces extends View {
     return telling ? live : lead?.program?.name || tab.name;
   }
 
+  // ↑↓± as a button that opens the Changes panel on that space. It handles the mouse
+  // itself: the card selects on mouse up.
+  changesLink(w, g, t) {
+    const parts = this.counts(g, t);
+    if (!parts.length) return null;
+    return h_flex().id(`changes-${w.id}`).flex_none().gap(6).px(3).mx(-3).rounded(R).items_center()
+      .hover((s) => s.bg(t.input)).tooltip("Show changes")
+      .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+      .on_mouse_up("left", (_e, cx) => {
+        cx.stop_propagation();
+        this.openChanges(w);
+      })
+      .children(parts);
+  }
+
+  openChanges(w) {
+    if (w.active) {
+      run("layout.select", { stack: "panel-body", child: "changes" });
+      run("layout.show", { id: "panel" });
+      return;
+    }
+    setShared(OPEN_PANEL, { space: w.id, panel: "changes", at: Date.now() });
+    run("space.select", { id: w.id });
+  }
+
   press(w, i) {
     return (el) => el
       .when(this.pressed !== null && this.over === i && this.pressed !== i, (el) => el.border_t(2).border_color(theme().accent))
@@ -376,7 +403,7 @@ export default class Spaces extends View {
       .child(div().w(8).h(1).flex_none().bg(ink.line))
       .child(svg(`${ICONS}/folder-git-2.svg`).size(13).flex_none().text_color(ink.mark))
       .child(div().flex_1().min_w(0).truncate().text_color(on ? bright(t) : t.muted).child(w.name))
-      .children(this.counts(g, t))
+      .children([this.changesLink(w, g, t)].filter(Boolean))
       .when(Boolean(w.status), (el) => el.child(this.status(t, w.status, false)));
   }
 
@@ -467,7 +494,7 @@ export default class Spaces extends View {
       .child(h_flex().h(18).gap(6).items_center().text_size(11.5).text_color(on ? t.muted : t.dim)
         .child(svg(`${ICONS}/git-branch.svg`).size(12).flex_none().text_color(ink.mark))
         .child(div().flex_1().min_w(0).truncate().child(g ? g.branch ?? "detached" : w.branch ?? "no repo"))
-        .children(this.counts(g, t))
+        .children([this.changesLink(w, g, t)].filter(Boolean))
         .children(progs.map((p) => icon(p, 14, t.muted)))
         .when(trees.length > 0, (el) => el.child(this.wtButton({ w, g }, trees, open, t, ink))));
   }
