@@ -43,14 +43,6 @@ const STATUS = { blocked: "Needs you", working: "Working", done: "Done", idle: "
 
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
 
-// At most 3 bars on a repo's worktree button: the shown worktree, then the most
-// urgent, in list order.
-const URGENCY = { blocked: 4, done: 3, working: 2, idle: 1 };
-function bars(trees) {
-  const score = ({ w }) => (w.active ? 10 : 0) + (URGENCY[w.status] ?? 0);
-  const keep = new Set([...trees].sort((a, b) => score(b) - score(a)).slice(0, 3));
-  return trees.filter((r) => keep.has(r));
-}
 
 // A #rrggbb color moved `k` of the way to white.
 const lighten = (hex, k) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k) + 255 * k).toString(16).padStart(2, "0")).join("");
@@ -266,7 +258,11 @@ export default class Spaces extends View {
       const open = trees.length > 0 && this.open.has(head.g.repo);
       const card = this.card(head, t, ps, all, trees, open);
       if (!open) return [card];
-      return [card, v_flex().id(`trees-${head.w.id}`).flex_none().py(2).mb(4).bg(t.canvas + "73").children(trees.map((r) => this.worktree(r, t)))];
+      // No band of its own: a 1 px guide in the repo's color ties the lines to the card.
+      const ink = this.inkOf(head.w, t);
+      return [card, v_flex().id(`trees-${head.w.id}`).relative().flex_none().mb(4)
+        .child(div().absolute().left(18).top(-4).bottom(13).w(1).bg(ink.line))
+        .children(trees.map((r) => this.worktree(r, t, ink)))];
     };
     const loading = m => {
       const layout = machines().find(k => k.name === m)?.layout;
@@ -360,14 +356,14 @@ export default class Spaces extends View {
       });
   }
 
-  // A worktree in its repo's open band: one 26 px line, the band's tone showing through.
-  worktree({ w, i, g }, t) {
+  // A worktree under its open repo: one 26 px line hanging off the guide.
+  worktree({ w, i, g }, t, ink) {
     const on = w.active;
     return h_flex()
       .id(`space-${w.id}`)
       .h(26)
       .flex_none()
-      .pl(33)
+      .pl(18)
       .pr(10)
       .gap(7)
       .items_center()
@@ -376,7 +372,8 @@ export default class Spaces extends View {
       .when(on, (el) => el.bg(t.selected))
       .when(!on, (el) => el.hover((s) => s.bg(t.hover)))
       .map(this.press(w, i))
-      .child(svg(`${ICONS}/folder-git-2.svg`).size(13).flex_none().text_color(t.dim))
+      .child(div().w(8).h(1).flex_none().bg(ink.line))
+      .child(svg(`${ICONS}/folder-git-2.svg`).size(13).flex_none().text_color(ink.mark))
       .child(div().flex_1().min_w(0).truncate().text_color(on ? bright(t) : t.muted).child(w.name))
       .children(this.counts(g, t))
       .when(Boolean(w.status), (el) => el.child(this.status(t, w.status, false)));
@@ -384,23 +381,20 @@ export default class Spaces extends View {
 
   // The button at the end of a card's line 3 that opens its repo's worktrees.
   // It handles the mouse itself: the card selects on mouse up.
-  wtButton(head, trees, open, t) {
-    const color = ({ w }) => (w.active ? t.accent : w.status && w.status !== "idle" ? t[w.status] ?? t.dim : t.dim + "73");
+  wtButton(head, trees, open, t, ink) {
     const label = `${trees.length} worktree${trees.length > 1 ? "s" : ""}`;
     return h_flex()
       .id(`trees-button-${head.w.id}`)
-      .h(22)
+      .h(20)
       .flex_none()
-      .pl(6)
-      .pr(7)
-      .gap(6)
+      .px(4)
+      .gap(4)
       .items_center()
       .rounded(R)
       .text_size(11)
       .font_medium()
-      .bg(open ? t.selected : t.input + "99")
-      .text_color(open ? bright(t) : t.muted)
-      .when(!open, (el) => el.hover((s) => s.bg(t.input).text_color(bright(t))))
+      .text_color(open ? t.muted : t.dim)
+      .hover((s) => s.bg(t.input).text_color(bright(t)))
       .tooltip(open ? `Hide ${label}` : `Show ${label}`)
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_mouse_up("left", (_e, cx) => {
@@ -408,19 +402,24 @@ export default class Spaces extends View {
         this.toggleTrees(head.g.repo);
         cx.notify();
       })
-      .child(h_flex().flex_none().gap(2).children(bars(trees).map((r) => div().w(5).h(10).rounded(1).bg(color(r)))))
+      .child(svg(`${ICONS}/folder-git-2.svg`).size(12).flex_none().text_color(ink.mark))
       .child(div().flex_none().child(String(trees.length)))
       .child(svg(`${ICONS}/chevron-${open ? "down" : "right"}.svg`).size(10).flex_none().text_color(t.dim));
   }
 
-  card({ w, i, g }, t, ps, all, trees, open) {
-    const on = w.active;
-    const colors = shared("space.colors") ?? {};
-    const color = colors[w.id] ?? "ansi6";
+  // The space's color as the card wears it: the monogram (bg, fg), the git and
+  // worktree icons (mark) and the guide under an open repo (line).
+  inkOf(w, t) {
+    const color = (shared("space.colors") ?? {})[w.id] ?? "ansi6";
     const fill = color.startsWith("#") ? color : (t[color] ?? t.accent);
     // A color the space got as a name or an rgba hex can't take an alpha suffix.
-    const plain = /^#[0-9a-f]{6}$/i.test(fill);
-    const ink = plain ? { bg: fill + "3d", fg: lighten(fill, 0.15) } : { bg: fill, fg: t.canvas };
+    if (!/^#[0-9a-f]{6}$/i.test(fill)) return { bg: fill, fg: t.canvas, mark: t.dim, line: t.input };
+    return { bg: fill + "3d", fg: lighten(fill, 0.15), mark: lighten(fill, 0.15), line: fill + "73" };
+  }
+
+  card({ w, i, g }, t, ps, all, trees, open) {
+    const on = w.active;
+    const ink = this.inkOf(w, t);
     const pinned = this.pins().includes(w.id);
     const hovered = this.hovered === w.id;
     const title = this.heading(w, ps);
@@ -457,16 +456,16 @@ export default class Spaces extends View {
       .map(this.press(w, i))
       .child(h_flex().h(20).gap(7).items_center().text_size(12)
         .child(h_flex().size(16).flex_none().rounded(R).bg(ink.bg).items_center().justify_center().text_size(9.5).line_height("16px").font_bold().text_color(ink.fg).child([...w.name][0]?.toUpperCase() ?? "?"))
-        .child(div().flex_1().min_w(0).truncate().text_color(on ? bright(t) : t.muted).child(w.name))
+        .child(div().flex_1().min_w(0).truncate().text_color(on ? t.muted : t.dim).child(w.name))
         .when(pinned || hovered, (el) => el.child(pin))
         .when(Boolean(w.status), (el) => el.child(this.status(t, w.status, true))))
       .when(Boolean(title), (el) => el.child(div().truncate().text_size(13).font_weight(quiet ? 500 : 600).text_color(quiet ? t.muted : bright(t)).child(title)))
       .child(h_flex().h(18).gap(6).items_center().text_size(11.5).text_color(on ? t.muted : t.dim)
-        .child(svg(`${ICONS}/git-branch.svg`).size(12).flex_none())
+        .child(svg(`${ICONS}/git-branch.svg`).size(12).flex_none().text_color(ink.mark))
         .child(div().flex_1().min_w(0).truncate().child(g ? g.branch ?? "detached" : w.branch ?? "no repo"))
         .children(this.counts(g, t))
         .children(progs.map((p) => icon(p, 14, t.muted)))
-        .when(trees.length > 0, (el) => el.child(this.wtButton({ w, g }, trees, open, t))));
+        .when(trees.length > 0, (el) => el.child(this.wtButton({ w, g }, trees, open, t, ink))));
   }
 
   render() {
