@@ -12,6 +12,23 @@ const R = 4;
 const OPEN_PANEL = "noctua.panel.open";
 const bright = (t) => (settings()?.dark === false ? t.foreground : t.ansi15);
 
+// Agent state, the same table in every Noctua mod: its theme color, the color of
+// its time on a card, and how that time reads.
+const STATES = {
+  blocked: { color: "blocked", tone: "blocked", since: (m) => `waiting ${m}` },
+  working: { color: "working", tone: "dim", since: (m) => `working ${m}` },
+  done: { color: "done", tone: "done", since: (m) => `done ${m} ago` },
+  idle: { color: "idle", tone: "dim", since: null },
+};
+
+// The one state mark: a dot (blocked, done), a turning arc (working), a ring (idle).
+function dot(t, st, size = 9, spin = size + 2) {
+  const color = t[STATES[st]?.color] ?? t.dim;
+  if (st === "working") return svg(`${ICONS}/dot-spin.svg`).size(spin).flex_none().text_color(color).spin(900);
+  if (st === "idle") return div().size(size).flex_none().rounded_full().border(1.5).border_color(color);
+  return st ? div().size(size).flex_none().rounded_full().bg(color) : null;
+}
+
 function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) {
@@ -106,9 +123,7 @@ export default class Tabs extends View {
           ? (program.tint ? svg(program.icon).size(14).flex_none().text_color(on ? t.foreground : t.dim) : image(program.icon).size(14).flex_none())
           : svg(`${ICONS}/terminal.svg`).size(13).flex_none())
         .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
-        .when(c.status === "blocked", el => el.child(div().size(14).flex_none().rounded(R).bg(t.blocked + "33").text_size(9).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!")))
-        .when(c.status === "working", el => el.child(svg(`${ICONS}/spinner.svg`).size(12).flex_none().text_color(t.working).spin(900)))
-        .when(c.status === "done", el => el.child(svg(`${ICONS}/check.svg`).size(13).flex_none().text_color(t.done)))
+        .when(c.status && c.status !== "idle", el => el.child(dot(t, c.status, 9)))
         .child(div().flex_1())
         .child(div().id(`close-${c.id}`).size(20).flex_none().flex().items_center().justify_center().rounded(R).text_color(t.dim)
           .when(!closable, el => el.opacity(0))
