@@ -49,7 +49,7 @@
               "id": "spaces",
               "type": "block",
               "size": {
-                "px": 240
+                "weight": 7
               },
               "min": 90,
               "content": {

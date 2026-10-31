@@ -183,7 +183,6 @@ export default class Spaces extends View {
     this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]"));
     // Repos (git.repo) whose worktrees are open under their card.
     this.open = new Set(JSON.parse(localStorage.getItem("worktrees.open") ?? "[]"));
-    this.want = null; // the block height its rows ask for
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
     // `git status` walks the whole tree, on another machine a process there:
@@ -199,20 +198,7 @@ export default class Spaces extends View {
     for (const s of sp) if (!this.shown.has(s.id)) this.born[s.id] ??= now;
     const due = this.due(now, sp, panes());
     if (due.size) this.refreshGit(due, cx);
-    this.fit();
     if (sp.some((s) => !this.shown.has(s.id))) cx.notify();
-  }
-
-  // D2: the block as tall as its rows, up to 62% of the sidebar's lists, so the
-  // agents list keeps the rest. layout.resize keeps it in the layout's clicks.
-  fit() {
-    if (this.want == null) return;
-    const vp = globalThis.window?.viewport_size?.();
-    const zoom = settings()?.zoom ?? 1;
-    const lists = vp?.height ? vp.height / zoom - 66 - 28 : 640;
-    const px = Math.max(90, Math.min(Math.round(this.want), Math.round(lists * 0.62)));
-    const now = find(layout(), "spaces")?.size?.px;
-    if (now !== px) run("layout.resize", { id: "spaces", px });
   }
 
   // Places whose git could have changed: new ones (a new space, a cd), where a
@@ -598,7 +584,6 @@ export default class Spaces extends View {
     const groups = this.ordered();
     const pins = this.pins();
     const top = (b) => [b.head, ...b.trees].map((r) => r.w.status).reduce((m, s) => ((RANK[s] ?? 0) > (RANK[m] ?? 0) ? s : m), null);
-    this.want = 8 + groups.length * 40 + 32 + 8;
     return v_flex().id("rail").size_full().min_h(0).bg(t.chrome).pt(8).pb(8).gap(4).items_center().overflow_y_scroll()
       .children(groups.map((b) => {
         const w = b.head.w, on = w.active || b.trees.some((r) => r.w.active);
@@ -633,7 +618,6 @@ export default class Spaces extends View {
     this.syncColors(spaces());
     if (narrow()) return this.rail(t);
     const rows = this.rows(t);
-    this.want = rows.reduce((n, row) => n + row.h, 0);
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(13)
       .child(v_flex().id("spaces-box").relative().flex_1().min_h(0)
         .on_hover((on, cx) => { this.lit = on; cx.notify(); })
