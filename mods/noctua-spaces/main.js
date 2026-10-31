@@ -37,8 +37,9 @@ function dot(t, st, size = 9, spin = size + 2) {
   return st ? div().size(size).flex_none().rounded_full().bg(color) : null;
 }
 
-// The lists' scrollbar: a 3 px strip on the right edge, always there, faint until
-// the pointer is over the list (`lit`). Same in noctua-agents.
+// The lists' scrollbar, always there, at 45% until the pointer is over the list
+// (`lit`). The theme draws it 6 px wide at the list's edge whatever box holds it
+// (measured); the box only carries the opacity. Same in noctua-agents.
 const thinBar = (id, lit) => div().absolute().top(2).bottom(2).right(1).w(3).opacity(lit ? 1 : 0.45)
   .child(Scrollbar.vertical(id).mode("always").size_full());
 
@@ -490,8 +491,8 @@ export default class Spaces extends View {
   }
 
   // The branch with its icon in the space's color, in mono.
-  branchTag(t, color, name) {
-    return h_flex().flex_none().max_w(120).gap(4).items_center().text_color(t.dim)
+  branchTag(t, color, name, max = 120) {
+    return h_flex().flex_none().max_w(max).gap(4).items_center().text_color(t.dim)
       .child(svg(`${ICONS}/git-branch.svg`).size(12).flex_none().text_color(lighten(color, 0.12)))
       .child(div().min_w(0).truncate().font_family(MONO).text_size(11).child(name));
   }
@@ -578,7 +579,7 @@ export default class Spaces extends View {
           .when(!since && Boolean(branch), (el) => el.child(this.branchTag(t, color, branch))))
         .child(h_flex().h(20).gap(8).items_center()
           .child(div().flex_1().min_w(0).truncate().text_size(13).font_weight(500).text_color(quiet ? t.muted : bright(t)).child(title || " "))
-          .when(Boolean(since) && Boolean(branch), (el) => el.child(this.branchTag(t, color, branch)))
+          .when(Boolean(since) && Boolean(branch), (el) => el.child(this.branchTag(t, color, branch, 90)))
           .children([this.changesLink(w, head.g, t)].filter(Boolean))
           .when(trees.length > 0, (el) => el.child(this.wtButton(head, trees, open, t)))));
     return div().h(61).px(8).pb(4).child(card);

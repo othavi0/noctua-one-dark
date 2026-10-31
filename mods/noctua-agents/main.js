@@ -27,8 +27,9 @@ function dot(t, st, size = 9, spin = size + 2) {
   return st ? div().size(size).flex_none().rounded_full().bg(color) : null;
 }
 
-// The lists' scrollbar: a 3 px strip on the right edge, always there, faint until
-// the pointer is over the list (`lit`). Same in noctua-spaces.
+// The lists' scrollbar, always there, at 45% until the pointer is over the list
+// (`lit`). The theme draws it 6 px wide at the list's edge whatever box holds it
+// (measured); the box only carries the opacity. Same in noctua-spaces.
 const thinBar = (id, lit) => div().absolute().top(2).bottom(2).right(1).w(3).opacity(lit ? 1 : 0.45)
   .child(Scrollbar.vertical(id).mode("always").size_full());
 
