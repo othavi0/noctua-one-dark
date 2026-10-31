@@ -1,5 +1,5 @@
 // Noctua's pane header (28 px): the program's icon, the agent's name or the
-// terminal's title, the folder and the agent's status. The focused pane's header
+// terminal's title, the folder and the agent's state dot. The focused pane's header
 // is lighter (theme hover) with a white name; the rest sit on the chrome color.
 // No colored border. On hover: split right, split down, zoom, close.
 // Props from the app: { pane, terminal }. Click: focus the pane.
@@ -10,7 +10,25 @@ import { h_flex } from "gpui-base";
 import { panes, props, run, theme, home, settings } from "herdr";
 
 const R = 4;
+const ICONS = "mods/noctua-chrome";
 const bright = (t) => (settings()?.dark === false ? t.foreground : t.ansi15);
+
+// Agent state, the same table in every Noctua mod: its theme color, the color of
+// its time on a card, and how that time reads.
+const STATES = {
+  blocked: { color: "blocked", tone: "blocked", since: (m) => `waiting ${m}` },
+  working: { color: "working", tone: "dim", since: (m) => `working ${m}` },
+  done: { color: "done", tone: "done", since: (m) => `done ${m} ago` },
+  idle: { color: "idle", tone: "dim", since: null },
+};
+
+// The one state mark: a dot (blocked, done), a turning arc (working), a ring (idle).
+function dot(t, st, size = 9, spin = size + 2) {
+  const color = t[STATES[st]?.color] ?? t.dim;
+  if (st === "working") return svg(`${ICONS}/dot-spin.svg`).size(spin).flex_none().text_color(color).spin(900);
+  if (st === "idle") return div().size(size).flex_none().rounded_full().border(1.5).border_color(color);
+  return st ? div().size(size).flex_none().rounded_full().bg(color) : null;
+}
 
 function icon(p, size, color) {
   if (!p?.icon) return null;
@@ -74,9 +92,7 @@ export default class Pane extends View {
       .when(Boolean(pic), (el) => el.child(pic))
       .child(div().flex_none().truncate().max_w(260).font_medium().text_color(on ? bright(t) : t.muted).child(name))
       .child(div().flex_1().min_w(0).truncate().child(folder(p.cwd)))
-      .when(st === "working", el => el.child(svg("mods/noctua-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
-      .when(st === "blocked", el => el.child(div().flex_none().px(6).h(18).flex().items_center().rounded(R).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).child("Needs you")))
-      .when(st === "done", el => el.child(svg("mods/noctua-chrome/check.svg").size(13).flex_none().text_color(t.done)))
+      .when(Boolean(st) && st !== "idle", (el) => el.child(h_flex().w(14).flex_none().justify_center().child(dot(t, st, 9))))
       .when(this.hovered, el => el
         .child(this.button(t, `ph-r-${pane}`, "split-right", "pane.split", { direction: "right", pane }))
         .child(this.button(t, `ph-d-${pane}`, "split-down", "pane.split", { direction: "down", pane }))

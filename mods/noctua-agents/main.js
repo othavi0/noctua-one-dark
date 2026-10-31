@@ -4,8 +4,34 @@
 // agents list with Noctua's 4 px corners.
 
 import { View, div, image, svg } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
-import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, layout } from "herdr";
+import { v_flex, h_flex, Scrollbar } from "gpui-base";
+import { agents, terminals, panes, focused, spaces, run, theme, shared, setShared, setAgentOrder, openOverlay, closeOverlay, props, layout, updates, settings } from "herdr";
+
+const ICONS = "mods/noctua-chrome";
+const bright = (t) => (settings()?.dark === false ? t.foreground : t.ansi15);
+
+// Agent state, the same table in every Noctua mod: its theme color, the color of
+// its time on a card, and how that time reads.
+const STATES = {
+  blocked: { color: "blocked", tone: "blocked", since: (m) => `waiting ${m}` },
+  working: { color: "working", tone: "dim", since: (m) => `working ${m}` },
+  done: { color: "done", tone: "done", since: (m) => `done ${m} ago` },
+  idle: { color: "idle", tone: "dim", since: null },
+};
+
+// The one state mark: a dot (blocked, done), a turning arc (working), a ring (idle).
+function dot(t, st, size = 9, spin = size + 2) {
+  const color = t[STATES[st]?.color] ?? t.dim;
+  if (st === "working") return svg(`${ICONS}/dot-spin.svg`).size(spin).flex_none().text_color(color).spin(900);
+  if (st === "idle") return div().size(size).flex_none().rounded_full().border(1.5).border_color(color);
+  return st ? div().size(size).flex_none().rounded_full().bg(color) : null;
+}
+
+// The lists' scrollbar, always there, at 45% until the pointer is over the list
+// (`lit`). The theme draws it 6 px wide at the list's edge whatever box holds it
+// (measured); the box only carries the opacity. Same in noctua-spaces.
+const thinBar = (id, lit) => div().absolute().top(2).bottom(2).right(1).w(3).opacity(lit ? 1 : 0.45)
+  .child(Scrollbar.vertical(id).mode("always").size_full());
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -193,22 +219,29 @@ export default class Agents extends View {
       .child(this.status(t, { status: st }, compact));
   }
 
-  // compact: a ! for blocked where a header already says "Needs you".
-  status(t, a, compact = false) {
-    const color = t[a.status] ?? t.dim;
-    if (a.status === "working") return svg("mods/noctua-chrome/spinner.svg").size(12).mx(1).flex_none().text_color(t.working).spin(900);
-    if (a.status === "blocked" && compact) return div().size(14).flex_none().rounded(R).bg(t.blocked + "26").text_size(10.5).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!");
-    if (a.status === "blocked") return div().flex_none().px(6).h(18).rounded(R).bg(t.blocked + "26").text_size(10.5).font_semibold().text_color(t.blocked).flex().items_center().child("Needs you");
-    // Idle: a ring; done: a dot.
-    if (a.status === "idle") return div().size(7).mx(3).flex_none().rounded(R).border(1.5).border_color(t.idle ?? t.dim);
-    return div().size(7).mx(3).flex_none().rounded(R).bg(a.status === "done" ? color : t.dim + "00");
+  // The state dot in a 16 px slot, so the rows' ends line up.
+  status(t, a) {
+    return h_flex().w(16).flex_none().justify_center().child(dot(t, a.status, 9) ?? div());
+  }
+
+  // M1: on the rail, the footer's buttons at the bottom of this block, under a thin line.
+  rail(t) {
+    const ready = Boolean(updates()?.app?.ready);
+    const button = (id, icon, action, tip) => div().id(id).size(28).flex_none().flex().items_center().justify_center().rounded(R)
+      .text_color(t.dim).hover((s) => s.bg(t.hover).text_color(bright(t))).tooltip(tip).on_click(action)
+      .child(svg(`${ICONS}/${icon}.svg`).size(14));
+    return v_flex().size_full().bg(t.chrome).items_center().justify_end().gap(4).pb(8)
+      .child(div().w(28).h(1).mb(4).flex_none().bg(t.border))
+      .child(div().relative().flex_none()
+        .child(button("rail-settings", "settings", () => run("app.settings"), ready ? "Settings (update ready)" : "Settings"))
+        .when(ready, (el) => el.child(div().absolute().top(4).right(4).size(6).rounded(R).bg(t.accent))))
+      .child(button("rail-machines", "monitor", () => run("mod.open", { name: "machine-add" }), "Machines"));
   }
 
   render(cx) {
     const t = theme();
     if (props()?.sortMenu) return this.sortMenu(t);
-    // On the rail the sidebar shows only its top block.
-    if (narrow()) return div().size_full().bg(t.chrome);
+    if (narrow()) return this.rail(t);
     const sort = sortOf();
     let list = agents();
     this.listed = new Map(list.map((a) => [a.address, a.status]));
@@ -408,7 +441,10 @@ export default class Agents extends View {
           .child(div().child(String(g.members.length)))
           .child(div().flex_1())
           .child(svg(`mods/noctua-chrome/chevron-${open ? "down" : "up"}.svg`).size(11).flex_none()))
-        .when(shown.length > 0, (el) => el.child(v_flex().id("idle-rows").max_h(150).overflow_y_scrollbar().children(shown)));
+        .when(shown.length > 0, (el) => el.child(v_flex().relative().max_h(150)
+          .on_hover((on, cx) => { this.idleLit = on; cx.notify(); })
+          .child(v_flex().id("idle-rows").max_h(150).overflow_y_scroll().children(shown))
+          .child(thinBar("idle-rows", this.idleLit))));
     };
 
     return v_flex()
@@ -442,7 +478,10 @@ export default class Agents extends View {
       .when(list.length === 0, (el) =>
         el.child(div().px(12).text_size(12).text_color(t.dim).child("No agent status yet. Agents show up here when they report their status. Older versions and agents inside tmux may not.")),
       )
-      .child(v_flex().id("ag-list").flex_1().min_h(0).px(8).overflow_y_scrollbar().mode("always").children(rows))
+      .child(v_flex().id("ag-box").relative().flex_1().min_h(0)
+        .on_hover((on, cx) => { this.lit = on; cx.notify(); })
+        .child(v_flex().id("ag-list").size_full().min_h(0).px(8).overflow_y_scroll().children(rows))
+        .child(thinBar("ag-list", this.lit)))
       .when(Boolean(idle), (el) => el.child(drawer(idle)));
   }
 }
