@@ -29,6 +29,20 @@ function dot(t, st, size = 9, spin = size + 2) {
   return st ? div().size(size).flex_none().rounded_full().bg(color) : null;
 }
 
+const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
+
+// The tab's name if someone named it, else the title its agent set: the rule of a
+// space card's line 2 in noctua-spaces. Paths, user@host and the program's own name
+// say nothing, so the program's name stands in for them.
+function heading(tab, ps) {
+  if (tab.named) return tab.name;
+  const mine = ps.filter((p) => p.tab === tab.id && p.terminal);
+  const lead = mine.find((p) => p.program?.agent) ?? mine.find((p) => p.focused) ?? mine[0];
+  const live = clean(lead?.title);
+  const telling = live && live !== lead?.program?.name && !/^[~/]|^[A-Za-z]:\\/.test(live) && !live.includes("@") && live.toLowerCase() !== lead?.program?.key;
+  return telling ? live : lead?.program?.name || "";
+}
+
 function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) {
@@ -100,10 +114,10 @@ export default class Tabs extends View {
     const item = (c, i) => {
       const mine = ps.filter(p => p.tab === c.id);
       const program = mine.find(p => p.program?.agent)?.program ?? mine[0]?.program;
-      const name = /^tb\d+$/.test(c.name) ? program?.name ?? "Terminal" : c.name;
+      const name = heading(c, ps) || program?.name || "Terminal";
       const on = c.active;
       const closable = on || this.hovered === c.id;
-      return h_flex().id(`tab-${c.id}`).h_full().min_w(140).flex_none().pl(12).pr(8).gap(8).items_center().text_size(12.5)
+      return h_flex().id(`tab-${c.id}`).h_full().min_w(140).max_w(260).flex_none().pl(12).pr(8).gap(8).items_center().text_size(12.5)
         .border_r(1).border_color(t.border)
         .when(on, el => el.bg(t.background).text_color(t.foreground))
         .when(!on, el => line(el).bg(t.chrome).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.muted)))
@@ -122,7 +136,7 @@ export default class Tabs extends View {
         .child(program?.icon
           ? (program.tint ? svg(program.icon).size(14).flex_none().text_color(on ? t.foreground : t.dim) : image(program.icon).size(14).flex_none())
           : svg(`${ICONS}/terminal.svg`).size(13).flex_none())
-        .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
+        .child(div().flex_shrink(1).min_w(0).truncate().child(c.zoomed ? `${name} Z` : name))
         .when(c.status && c.status !== "idle", el => el.child(dot(t, c.status, 9)))
         .child(div().flex_1())
         .child(div().id(`close-${c.id}`).size(20).flex_none().flex().items_center().justify_center().rounded(R).text_color(t.dim)
