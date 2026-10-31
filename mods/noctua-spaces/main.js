@@ -1,6 +1,6 @@
 // Noctua's spaces: each one a two-line card with the space's avatar (its letters in its
 // color, the state as a dot on the corner). Line 1: name, pin, and the branch or how
-// long the space has been in its state; line 2: the shown tab's title, ↑↓± and, for a
+// long the space has been in its state; line 2: the shown tab's title, ↑↓ and, for a
 // repo with worktrees, the button that opens them under the card. On the rail: the
 // avatars alone. The block takes the height of its rows (D2), the agents list the rest.
 // Corners are 4 px.
@@ -18,6 +18,9 @@ const PINS = "noctua.spaces.pinned";
 const OPEN_PANEL = "noctua.panel.open";
 // Herdr's spaces mod and picker read the same key, and take a #rrggbb as it is.
 const COLORS = "space.colors";
+// { [space id]: { add, del } }: the lines a space's uncommitted changes add and remove
+// (git diff HEAD --numstat, as noctua-changes counts them), for noctua-tabs' Changes button.
+const LINES = "noctua.changes.lines";
 
 // Agent state, the same table in every Noctua mod: its theme color, the color of
 // its time on a card, and how that time reads.
@@ -165,7 +168,7 @@ function sinceLabel(w, now) {
 
 export default class Spaces extends View {
   init(_props, cx) {
-    this.git = {}; // where() -> { name, branch, ahead, behind, repo, linked }, null: not a repo
+    this.git = {}; // where() -> { name, branch, ahead, behind, add, del, repo, linked }, null: not a repo
     this.checked = {}; // where() -> when it was last looked at
     this.unsure = new Set(); // where()s git couldn't answer for (a machine away)
     this.pending = new Set(); // where()s to look at next
@@ -261,12 +264,26 @@ export default class Spaces extends View {
       }
       const used = new Set(Object.values(this.git).filter(Boolean).map((g) => JSON.parse(g.repo)).filter(([on]) => !on).map(([, repo]) => repo));
       for (const repo of this.watching) if (!used.has(repo)) this.watching.delete(repo);
+      this.publishLines();
       this.refreshing = false;
       cx.notify();
     });
   }
 
-  // One place's git: branch, ahead/behind, its repo.
+  // Each space's lines, written only when they changed. No spaces is herdr-app check's
+  // empty run against the real shared state: nothing then.
+  publishLines() {
+    const sp = spaces(), ps = panes();
+    if (!sp.length) return;
+    const lines = {};
+    for (const s of sp) {
+      const g = this.git[where(s, ps)];
+      if (g && (g.add || g.del)) lines[s.id] = { add: g.add, del: g.del };
+    }
+    if (JSON.stringify(lines) !== JSON.stringify(shared(LINES) ?? {})) setShared(LINES, lines);
+  }
+
+  // One place's git: branch, ahead/behind, lines changed, its repo.
   async check(key, cx) {
     const [on, cwd] = JSON.parse(key);
     this.checked[key] = Date.now();
@@ -286,14 +303,30 @@ export default class Spaces extends View {
       const common = await exec("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd, on });
       const repo = common.stdout.trim();
       const name = repo.endsWith("/.git") ? base(repo.slice(0, -5)) : base(repo).replace(/\.git$/, "");
-      const info = { name, branch: null, ahead: 0, behind: 0, dirty: 0, repo: JSON.stringify([on, repo]), linked: repo !== `${top.stdout.trim()}/.git` };
+      const info = { name, branch: null, ahead: 0, behind: 0, add: 0, del: 0, repo: JSON.stringify([on, repo]), linked: repo !== `${top.stdout.trim()}/.git` };
+      let dirty = false, initial = false;
       for (const line of r.stdout.split("\n")) {
-        if (line && !line.startsWith("#")) info.dirty++;
+        if (line && !line.startsWith("#")) dirty = true;
+        else if (line === "# branch.oid (initial)") initial = true;
         else if (line.startsWith("# branch.head ")) info.branch = line.slice(14);
         else if (line.startsWith("# branch.ab ")) {
           const [a, b] = line.slice(12).split(" ");
           info.ahead = Math.abs(parseInt(a, 10)) || 0;
           info.behind = Math.abs(parseInt(b, 10)) || 0;
+        }
+      }
+      // noctua-changes' numbers: tracked files against HEAD (before the first commit,
+      // staged plus unstaged); new files git doesn't track yet add nothing.
+      if (dirty) {
+        const diff = (args) => exec("git", ["--no-optional-locks", "-c", "core.fsmonitor=false", "-c", "diff.autoRefreshIndex=false", "diff", ...args, "--numstat", "-z", "--no-renames"], { cwd, on });
+        for (const d of await Promise.all(initial ? [diff(["--cached"]), diff([])] : [diff(["HEAD"])])) {
+          if (d.code !== 0) continue;
+          for (const entry of d.stdout.split("\0")) {
+            const [a, del, ...path] = entry.split("\t");
+            if (!path.length) continue;
+            info.add += Number(a) || 0;
+            info.del += Number(del) || 0;
+          }
         }
       }
       this.git[key] = info;
@@ -417,11 +450,11 @@ export default class Spaces extends View {
       .child(svg(`${ICONS}/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none());
   }
 
-  // Ahead, behind and uncommitted changes in dim, only when there are any.
+  // Ahead and behind in dim, only when there are any.
   counts(g, t) {
     if (!g) return [];
     const n = (text) => div().flex_none().text_size(11.5).text_color(t.dim).child(text);
-    return [...(g.ahead > 0 ? [n(`↑${g.ahead}`)] : []), ...(g.behind > 0 ? [n(`↓${g.behind}`)] : []), ...(g.dirty > 0 ? [n(`±${g.dirty}`)] : [])];
+    return [...(g.ahead > 0 ? [n(`↑${g.ahead}`)] : []), ...(g.behind > 0 ? [n(`↓${g.behind}`)] : [])];
   }
 
   // Line 2: the shown tab's name if someone named it, else what its agent calls itself.
@@ -436,7 +469,7 @@ export default class Spaces extends View {
     return telling ? live : lead?.program?.name || tab.name;
   }
 
-  // ↑↓± as a button that opens the Changes panel on that space. It handles the mouse
+  // ↑↓ as a button that opens the Changes panel on that space. It handles the mouse
   // itself: the card selects on mouse up.
   changesLink(w, g, t) {
     const parts = this.counts(g, t);
@@ -536,7 +569,7 @@ export default class Spaces extends View {
 
   // A11: avatar, then two lines. Line 1: name, pin, and the branch, or how long the
   // space has been in its state (the branch then moves to line 2). Line 2: the title,
-  // ↑↓± and the worktree button.
+  // ↑↓ and the worktree button.
   card(head, t, ps, trees, open, now) {
     const { w, i } = head;
     const on = w.active;
