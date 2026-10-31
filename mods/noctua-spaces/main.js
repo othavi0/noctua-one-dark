@@ -1,20 +1,119 @@
-// Noctua's spaces: each one a three-line card (monogram, name, pin and its most
-// urgent status; the shown tab's title; branch, its agents' icons and, for a repo
-// with worktrees, the button that opens them under the card), grouped by machine
-// when more than one is known. Click to switch, right-click for its menu, drag to
-// reorder, hover to pin. On the rail it draws nothing: the sidebar keeps only its top
-// block there. Corners are 4 px.
+// Noctua's spaces: each one a two-line card with the space's avatar (its letters in its
+// color, the state as a dot on the corner). Line 1: name, pin, and the branch or how
+// long the space has been in its state; line 2: the shown tab's title, ↑↓± and, for a
+// repo with worktrees, the button that opens them under the card. On the rail: the
+// avatars alone. The block takes the height of its rows (D2), the agents list the rest.
+// Corners are 4 px.
 
-import { View, div, svg, image } from "gpui-kit";
-import { v_flex, h_flex } from "gpui-base";
-import { spaces, machines, panes, agents, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, settings } from "herdr";
+import { View, div, svg } from "gpui-kit";
+import { v_flex, h_flex, Scrollbar } from "gpui-base";
+import { spaces, machines, panes, run, openOverlay, exec, hc, theme, shared, setShared, watchFolder, window, layout, settings } from "herdr";
 
 const ICONS = "mods/noctua-chrome";
 const R = 4;
+const MONO = "Geist Mono";
 const bright = (t) => (settings()?.dark === false ? t.foreground : t.ansi15);
 const PINS = "noctua.spaces.pinned";
 // { space, panel, at }: noctua-tabs shows that panel when that space comes into view.
 const OPEN_PANEL = "noctua.panel.open";
+// Herdr's spaces mod and picker read the same key, and take a #rrggbb as it is.
+const COLORS = "space.colors";
+
+// Agent state, the same table in every Noctua mod: its theme color, the color of
+// its time on a card, and how that time reads.
+const STATES = {
+  blocked: { color: "blocked", tone: "blocked", since: (m) => `waiting ${m}` },
+  working: { color: "working", tone: "dim", since: (m) => `working ${m}` },
+  done: { color: "done", tone: "done", since: (m) => `done ${m} ago` },
+  idle: { color: "idle", tone: "dim", since: null },
+};
+const RANK = { blocked: 4, done: 3, working: 2, idle: 1 };
+
+// The one state mark: a dot (blocked, done), a turning arc (working), a ring (idle).
+function dot(t, st, size = 9, spin = size + 2) {
+  const color = t[STATES[st]?.color] ?? t.dim;
+  if (st === "working") return svg(`${ICONS}/dot-spin.svg`).size(spin).flex_none().text_color(color).spin(900);
+  if (st === "idle") return div().size(size).flex_none().rounded_full().border(1.5).border_color(color);
+  return st ? div().size(size).flex_none().rounded_full().bg(color) : null;
+}
+
+// The lists' scrollbar: a 3 px strip on the right edge, always there, faint until
+// the pointer is over the list (`lit`). Same in noctua-agents.
+const thinBar = (id, lit) => div().absolute().top(2).bottom(2).right(1).w(3).opacity(lit ? 1 : 0.45)
+  .child(Scrollbar.vertical(id).mode("always").size_full());
+
+const elapsed = (ms) => {
+  const m = Math.floor(ms / 60000);
+  return m < 1 ? "<1 min" : m < 60 ? `${m} min` : m < 1440 ? `${Math.floor(m / 60)} h` : `${Math.floor(m / 1440)} d`;
+};
+
+// Two letters: the first two words' initials, or one word's first letter and the
+// first consonant after it (notas: NT, destrinchando: DS).
+function initials(name) {
+  const words = (name ?? "").split(/[-_.\s]+/).filter(Boolean);
+  if (!words.length) return "?";
+  if (words.length > 1) return (words[0][0] + words[1][0]).toUpperCase();
+  const w = words[0];
+  const c = w.slice(1).match(/[bcdfghjklmnpqrstvwxz]/i);
+  return (w[0] + (c ? c[0] : w[1] ?? "")).toUpperCase();
+}
+
+// "Wada pó", from Sanzo Wada's A Dictionary of Color Combinations, in the order
+// spaces take them: each next one the farthest in hue from those before it.
+const PALETTE = ["#dda8c8", "#78b79e", "#d6a582", "#a5ae77", "#aa9fd3", "#8fc7c6", "#b39fbf", "#bab37c", "#95c9a4", "#caa1cc", "#78c1b6", "#e4ac92"];
+const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+const toHex = (a) => "#" + a.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
+const lighten = (hex, k) => toHex(rgb(hex).map((c) => c + (255 - c) * k));
+const mix = (hex, a, base) => { const b = rgb(base); return toHex(rgb(hex).map((c, i) => c * a + b[i] * (1 - a))); };
+// OKLCH hue, in degrees.
+function hue(hex) {
+  const [r, g, b] = rgb(hex).map((u) => { u /= 255; return u <= 0.04045 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4; });
+  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
+  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
+  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
+  const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
+  return (Math.atan2(B, A) * 180 / Math.PI + 360) % 360;
+}
+const HUE = Object.fromEntries(PALETTE.map((c) => [c, hue(c)]));
+const hueGap = (a, b) => { const d = Math.abs(HUE[a] - HUE[b]) % 360; return d > 180 ? 360 - d : d; };
+
+// Each open space keeps its palette color unless another open space had it first;
+// the rest take, in order, the free color farthest in hue from those in use (past 12,
+// the least used). Old theme names (ansi6…) and closed spaces drop out.
+function assignColors(ids, saved) {
+  const out = {};
+  for (const id of ids) if (PALETTE.includes(saved?.[id]) && !Object.values(out).includes(saved[id])) out[id] = saved[id];
+  for (const id of ids) {
+    if (out[id]) continue;
+    const used = Object.values(out);
+    const uses = (c) => used.filter((u) => u === c).length;
+    const least = Math.min(...PALETTE.map(uses));
+    const far = (c) => (used.length ? Math.min(...used.map((u) => hueGap(c, u))) : 0);
+    out[id] = PALETTE.filter((c) => uses(c) === least).reduce((best, c) => (far(c) > far(best) ? c : best));
+  }
+  return out;
+}
+
+const colorOf = (id, t) => {
+  const c = (shared(COLORS) ?? {})[id];
+  const hex = typeof c === "string" && c.startsWith("#") ? c : t[c] ?? t.dim;
+  return /^#[0-9a-f]{6}/i.test(hex) ? hex.slice(0, 7) : "#8f8f8f";
+};
+
+// The space's avatar: its letters in its color lightened 12% on that color at 16% over
+// `under` (what the avatar sits on, which the seal's 2 px cut-out takes too), and the
+// state dot 3 px out of its corner. Idle and no agent: no dot.
+function avatar(t, name, color, size, under, st) {
+  const k = size / 28;
+  const d = Math.round(11 * k), off = Math.round(3 * k);
+  const font = Math.round(11.5 * k * 2) / 2;
+  return h_flex().relative().size(size).flex_none().rounded(Math.round(6 * k)).bg(mix(color, 0.16, under)).items_center().justify_center()
+    // A line box as tall as the font: centered, it puts the capitals in the middle
+    // (measured: 10 px above and 9 below in 28; the 16 px line box left them 1 px high).
+    .child(div().line_height(`${font}px`).text_size(font).font_weight(600).text_color(lighten(color, 0.12)).child(initials(name)))
+    .when(Boolean(st) && st !== "idle", (el) => el.child(h_flex().absolute().right(-off - 2).bottom(-off - 2).size(d + 4).rounded_full().bg(under).items_center().justify_center()
+      .child(dot(t, st, d, d))));
+}
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -39,20 +138,21 @@ const base = (path) => path.replace(/\/+$/, "").split("/").pop();
 // Changes made outside Herdr (an editor's save, a commit in another app): looked
 // for this often, in repos the list shows, while the window is in front.
 const FALLBACK = 60000;
-
-// The status a card or worktree line shows, by the space's most urgent agent.
-const STATUS = { blocked: "Needs you", working: "Working", done: "Done", idle: "Idle" };
+// Row heights in the list, each with the space under it.
+const H = { card: 61, tree: 28, treesEnd: 4, machine: 26, line: 28, top: 6, bottom: 10 };
 
 const clean = (s) => (s ?? "").replace(/^[^\p{L}\p{N}]+/u, "").trim();
 
-
-// A #rrggbb color moved `k` of the way to white.
-const lighten = (hex, k) => "#" + [1, 3, 5].map((i) => Math.round(parseInt(hex.slice(i, i + 2), 16) * (1 - k) + 255 * k).toString(16).padStart(2, "0")).join("");
-
-// The program's icon: a one-color glyph in `color`, or a picture.
-function icon(p, size, color) {
-  if (!p?.icon) return null;
-  return p.tint ? svg(p.icon).size(size).flex_none().text_color(color) : image(p.icon).w(size).h(size).flex_none();
+// How long the space has been in its state, as its card says it; null when idle or unknown.
+function sinceLabel(w, now) {
+  const st = w.status, say = STATES[st]?.since;
+  if (!say) return null;
+  const tabs = (w.tabs ?? []).filter((c) => c.status === st);
+  const times = tabs.map((c) => (st === "working" ? c.working_since : c.changed_at)).filter((x) => typeof x === "number");
+  if (!times.length) return null;
+  // Waiting and working: since the longest; done: since the latest.
+  const at = st === "done" ? Math.max(...times) : Math.min(...times);
+  return { st, text: say(elapsed(now - at)) };
 }
 
 export default class Spaces extends View {
@@ -75,11 +175,14 @@ export default class Spaces extends View {
     this.folded = new Set(JSON.parse(localStorage.getItem("machines.folded") ?? "[]"));
     // Repos (git.repo) whose worktrees are open under their card.
     this.open = new Set(JSON.parse(localStorage.getItem("worktrees.open") ?? "[]"));
+    this.want = null; // the block height its rows ask for
     this.refreshMachines(cx);
     cx.timer.every(15000, cx => this.refreshMachines(cx));
     // `git status` walks the whole tree, on another machine a process there:
     // only when its answer could have changed (see `due`).
     cx.timer.every(250, (cx) => this.checkNew(cx));
+    // The cards' "waiting 14 min" counts in minutes.
+    cx.timer.every(60000, (cx) => cx.notify());
   }
 
   checkNew(cx) {
@@ -88,7 +191,20 @@ export default class Spaces extends View {
     for (const s of sp) if (!this.shown.has(s.id)) this.born[s.id] ??= now;
     const due = this.due(now, sp, panes());
     if (due.size) this.refreshGit(due, cx);
+    this.fit();
     if (sp.some((s) => !this.shown.has(s.id))) cx.notify();
+  }
+
+  // D2: the block as tall as its rows, up to 62% of the sidebar's lists, so the
+  // agents list keeps the rest. layout.resize keeps it in the layout's clicks.
+  fit() {
+    if (this.want == null) return;
+    const vp = globalThis.window?.viewport_size?.();
+    const zoom = settings()?.zoom ?? 1;
+    const lists = vp?.height ? vp.height / zoom - 66 - 28 : 640;
+    const px = Math.max(90, Math.min(Math.round(this.want), Math.round(lists * 0.62)));
+    const now = find(layout(), "spaces")?.size?.px;
+    if (now !== px) run("layout.resize", { id: "spaces", px });
   }
 
   // Places whose git could have changed: new ones (a new space, a cd), where a
@@ -220,7 +336,7 @@ export default class Spaces extends View {
     const sp = spaces(), ps = panes();
     const ready = (w) => this.shown.has(w.id) || where(w, ps) in this.git || Date.now() - (this.born[w.id] ??= Date.now()) > 1500;
     for (const w of sp) if (!this.shown.has(w.id) && ready(w)) this.shown.add(w.id);
-    const list = sp.map((w, i) => ({ w, i, g: this.git[where(w, ps)] ?? null })).filter((r) => this.shown.has(r.w.id));
+    const list = sp.map((w, i) => ({ w, i, g: this.git[where(w, ps)] ?? null, known: where(w, ps) in this.git })).filter((r) => this.shown.has(r.w.id));
     const mains = new Set(list.filter((r) => r.g && !r.g.linked).map((r) => r.g.repo));
     const nested = (r) => r.g?.linked && mains.has(r.g.repo);
     const groups = [];
@@ -251,78 +367,67 @@ export default class Spaces extends View {
     setShared(PINS, pins.includes(id) ? pins.filter((p) => p !== id) : [...pins, id]);
   }
 
-  // The rows, under a header per machine once one isn't this computer.
-  grouped(t) {
+  // The list as rows of known height, { key, h, el }, under a header per machine once
+  // one isn't this computer. The heights add up to the block's height (D2).
+  rows(t) {
     const groups = this.ordered();
-    const ps = panes(), all = agents();
-    const remote = [...new Set([...groups.map(b => b.head.w.machine).filter(Boolean), ...this.machines.map(m => m.name)])].sort();
-    const draw = ({ head, trees }) => {
+    const ps = panes();
+    const now = Date.now();
+    const draw = (b) => {
+      const { head, trees } = b;
       const open = trees.length > 0 && this.open.has(head.g.repo);
-      const card = this.card(head, t, ps, all, trees, open);
-      if (!open) return [card];
-      // No band of its own: a 1 px guide in the repo's color ties the lines to the card.
-      // It comes last so a line's hover or selected fill paints under it, not over it.
-      const ink = this.inkOf(head.w, t);
-      return [card, v_flex().id(`trees-${head.w.id}`).relative().flex_none().mb(4)
-        .children(trees.map((r) => this.worktree(r, t, ink)))
-        .child(div().absolute().left(18).top(-4).bottom(13).w(1).bg(ink.line))];
+      const out = [{ key: `card-${head.w.id}`, h: H.card, el: () => this.card(head, t, ps, trees, open, now) }];
+      if (!open) return out;
+      for (const r of trees) out.push({ key: `tree-${r.w.id}`, h: H.tree, el: () => this.worktree(r, t) });
+      out.push({ key: `trees-end-${head.w.id}`, h: H.treesEnd, el: () => div() });
+      return out;
     };
+    const remote = [...new Set([...groups.map(b => b.head.w.machine).filter(Boolean), ...this.machines.map(m => m.name)])].sort();
     const loading = m => {
       const layout = machines().find(k => k.name === m)?.layout;
       return layout === "loading" || (!layout && this.machines.some(k => k.name === m && k.state === "connected"))
         || spaces().some(s => (s.machine ?? null) === m && !this.shown.has(s.id));
     };
-    const loadingRow = m => div().id(`machine-loading-${m ?? "local"}`).h(28).flex_none().px(8).text_size(12).text_color(t.dim).child("Loading…");
-    if (!remote.length) return loading(null) && !groups.length ? [loadingRow(null)] : groups.flatMap(draw);
-    const machineNames = [null, ...remote];
-    return machineNames.flatMap((m) => {
+    const loadingRow = m => ({ key: `loading-${m ?? "local"}`, h: H.line, el: () => div().h(28).px(16).flex().items_center().text_size(12).text_color(t.dim).child("Loading…") });
+    let body;
+    if (!remote.length) body = loading(null) && !groups.length ? [loadingRow(null)] : groups.flatMap(draw);
+    else body = [null, ...remote].flatMap((m) => {
       const mine = groups.filter((b) => (b.head.w.machine ?? null) === m);
-      const machine = this.machines.find(k => k.name === m);
-      const connected = !m || machine?.state === "connected";
       const folded = this.folded.has(m);
-      const head = h_flex().id(`machine-${m ?? "local"}`).h(26).flex_none().px(8).gap(7).items_center().text_size(11).text_color(t.dim)
-        .cursor_pointer().hover(s => s.bg(t.hover))
-        .on_click((_e, cx) => {
-          folded ? this.folded.delete(m) : this.folded.add(m);
-          localStorage.setItem("machines.folded", JSON.stringify([...this.folded]));
-          cx.notify();
-        })
-        .child(svg(`${ICONS}/${m ? "server" : "monitor"}.svg`).size(13).flex_none())
-        .child(div().flex_1().truncate().child(m ?? "This computer"))
-        .when(!connected, el => el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))))
-        .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().px(4).rounded(R).hover(s => s.bg(t.hover).text_color(t.foreground))
-          .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", m ? { machine: m } : {}); }).child("+")))
-        .child(div().size(6).rounded(R).flex_none().bg(connected ? t.ansi2 : t.dim))
-        .child(svg(`${ICONS}/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none());
-      const empty = h_flex().id(`machine-new-${m ?? "local"}`).h(28).flex_none().px(8).gap(7).items_center().rounded(R)
+      const head = { key: `machine-${m ?? "local"}`, h: H.machine, el: () => this.machineHead(m, t, folded) };
+      const empty = { key: `machine-empty-${m ?? "local"}`, h: H.line, el: () => h_flex().id(`machine-new-${m ?? "local"}`).h(28).mx(8).px(8).gap(7).items_center().rounded(R)
         .text_size(12).text_color(t.dim).hover(s => s.bg(t.hover).text_color(t.foreground))
         .on_click(() => run("space.new", m ? { machine: m } : {}))
-        .child(svg(`${ICONS}/plus.svg`).size(12)).child("New space there");
+        .child(svg(`${ICONS}/plus.svg`).size(12)).child("New space there") };
       return [head, ...(folded ? [] : mine.length ? mine.flatMap(draw) : [loading(m) ? loadingRow(m) : empty])];
     });
+    return [{ key: "top", h: H.top, el: () => div() }, ...body, { key: "bottom", h: H.bottom, el: () => div() }];
   }
 
-  // The status after a name: an icon, and on a card its word too.
-  status(t, st, word) {
-    if (!st) return null;
-    const mark =
-      st === "blocked" ? div().size(16).flex_none().rounded(R).bg(t.blocked + "33").text_size(10).font_bold().text_color(t.blocked).flex().items_center().justify_center().child("!")
-      : st === "working" ? svg(`${ICONS}/spinner.svg`).size(13).flex_none().text_color(t.working).spin(900)
-      : st === "done" ? svg(`${ICONS}/check.svg`).size(13).flex_none().text_color(t.done)
-      : svg(`${ICONS}/circle.svg`).size(12).flex_none().text_color(t.idle ?? t.dim);
-    if (!word) return mark;
-    return h_flex().flex_none().gap(5).items_center().text_size(11.5).font_medium().text_color(t[st] ?? t.dim).child(mark).child(STATUS[st] ?? st);
+  machineHead(m, t, folded) {
+    const machine = this.machines.find(k => k.name === m);
+    const connected = !m || machine?.state === "connected";
+    return h_flex().id(`machine-${m ?? "local"}`).h(26).mx(8).px(8).gap(7).items_center().text_size(11).text_color(t.dim)
+      .cursor_pointer().hover(s => s.bg(t.hover))
+      .on_click((_e, cx) => {
+        folded ? this.folded.delete(m) : this.folded.add(m);
+        localStorage.setItem("machines.folded", JSON.stringify([...this.folded]));
+        cx.notify();
+      })
+      .child(svg(`${ICONS}/${m ? "server" : "monitor"}.svg`).size(13).flex_none())
+      .child(div().flex_1().truncate().child(m ?? "This computer"))
+      .when(!connected, el => el.child(div().flex_none().child((machine?.state ?? "asleep").replace(/_/g, " "))))
+      .when(connected, el => el.child(div().id(`machine-add-${m ?? "local"}`).flex_none().px(4).rounded(R).hover(s => s.bg(t.hover).text_color(t.foreground))
+        .on_click((_e, cx) => { cx.stop_propagation(); run("space.new", m ? { machine: m } : {}); }).child("+")))
+      .child(div().size(6).rounded_full().flex_none().bg(connected ? t.done : t.dim))
+      .child(svg(`${ICONS}/chevron-${folded ? "right" : "down"}.svg`).size(11).flex_none());
   }
 
-  // Ahead, behind and uncommitted changes, only when there are any.
+  // Ahead, behind and uncommitted changes in dim, only when there are any.
   counts(g, t) {
     if (!g) return [];
-    const n = (text, color) => div().flex_none().text_size(11.5).text_color(color).child(text);
-    return [
-      ...(g.ahead > 0 ? [n(`↑${g.ahead}`, t.done)] : []),
-      ...(g.behind > 0 ? [n(`↓${g.behind}`, t.blocked)] : []),
-      ...(g.dirty > 0 ? [n(`±${g.dirty}`, t.dim)] : []),
-    ];
+    const n = (text) => div().flex_none().text_size(11.5).text_color(t.dim).child(text);
+    return [...(g.ahead > 0 ? [n(`↑${g.ahead}`)] : []), ...(g.behind > 0 ? [n(`↓${g.behind}`)] : []), ...(g.dirty > 0 ? [n(`±${g.dirty}`)] : [])];
   }
 
   // Line 2: the shown tab's name if someone named it, else what its agent calls itself.
@@ -384,48 +489,46 @@ export default class Spaces extends View {
       });
   }
 
-  // A worktree under its open repo: one 26 px line hanging off the guide.
-  worktree({ w, i, g }, t, ink) {
+  // The branch with its icon in the space's color, in mono.
+  branchTag(t, color, name) {
+    return h_flex().flex_none().max_w(120).gap(4).items_center().text_color(t.dim)
+      .child(svg(`${ICONS}/git-branch.svg`).size(12).flex_none().text_color(lighten(color, 0.12)))
+      .child(div().min_w(0).truncate().font_family(MONO).text_size(11).child(name));
+  }
+
+  // The branch a card shows: git's, Herdr's until git answers, none outside a repo.
+  branchOf({ w, g, known }) {
+    if (g) return g.branch ?? "detached";
+    return known ? null : w.branch;
+  }
+
+  // A worktree under its open repo: a 28 px line from the card's text column, with
+  // its branch and its state.
+  worktree({ w, i, g }, t) {
     const on = w.active;
-    return h_flex()
-      .id(`space-${w.id}`)
-      .h(26)
-      .flex_none()
-      .pl(18)
-      .pr(10)
-      .gap(7)
-      .items_center()
-      .rounded(R)
-      .text_size(12)
+    return h_flex().id(`space-${w.id}`).h(28).mx(8).pl(50).pr(10).gap(8).items_center().rounded(R).text_size(12)
       .when(on, (el) => el.bg(t.selected))
       .when(!on, (el) => el.hover((s) => s.bg(t.hover)))
       .map(this.press(w, i))
-      .child(div().w(8).h(1).flex_none().bg(ink.line))
-      .child(svg(`${ICONS}/folder-git-2.svg`).size(13).flex_none().text_color(ink.mark))
+      .child(svg(`${ICONS}/fork.svg`).size(12).flex_none().text_color(t.dim))
       .child(div().flex_1().min_w(0).truncate().text_color(on ? bright(t) : t.muted).child(w.name))
-      .children([this.changesLink(w, g, t)].filter(Boolean))
-      .when(Boolean(w.status), (el) => el.child(this.status(t, w.status, false)));
+      .when(Boolean(g?.branch), (el) => el.child(div().flex_none().max_w(84).truncate().font_family(MONO).text_size(11).text_color(t.dim).child(g.branch)))
+      .child(h_flex().w(16).flex_none().justify_center().child(dot(t, w.status ?? null, 9) ?? div()));
   }
 
-  // The button at the end of a card's line 3 that opens its repo's worktrees.
-  // It handles the mouse itself: the card selects on mouse up.
-  wtButton(head, trees, open, t, ink) {
+  // B1: the fork icon and the worktree count at the end of line 2. Red while a hidden
+  // worktree is blocked; the input fill on hover and while open. It handles the mouse
+  // itself: the card selects on mouse up.
+  wtButton(head, trees, open, t) {
     const label = `${trees.length} worktree${trees.length > 1 ? "s" : ""}`;
+    const red = !open && trees.some((r) => r.w.status === "blocked");
     // Closed over the shown worktree, it is the only mark of where you are.
     const hides = !open && trees.some((r) => r.w.active);
-    return h_flex()
-      .id(`trees-button-${head.w.id}`)
-      .h(20)
-      .flex_none()
-      .px(4)
-      .gap(4)
-      .items_center()
-      .rounded(R)
-      .text_size(11)
-      .font_medium()
-      .text_color(hides ? bright(t) : open ? t.muted : t.dim)
+    return h_flex().id(`trees-button-${head.w.id}`).h(20).flex_none().px(6).gap(5).items_center().rounded(R)
+      .text_color(red ? t.blocked : open || hides ? bright(t) : t.dim)
+      .when(open, (el) => el.bg(t.input))
       .when(hides, (el) => el.bg(t.selected))
-      .hover((s) => s.bg(t.input).text_color(bright(t)))
+      .hover((s) => s.bg(t.input))
       .tooltip(open ? `Hide ${label}` : `Show ${label}`)
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_mouse_up("left", (_e, cx) => {
@@ -433,36 +536,25 @@ export default class Spaces extends View {
         this.toggleTrees(head.g.repo);
         cx.notify();
       })
-      .child(svg(`${ICONS}/folder-git-2.svg`).size(12).flex_none().text_color(ink.mark))
-      .child(div().flex_none().child(String(trees.length)))
-      .child(svg(`${ICONS}/chevron-${open ? "down" : "right"}.svg`).size(10).flex_none().text_color(t.dim));
+      .child(svg(`${ICONS}/fork.svg`).size(12).flex_none())
+      .child(div().flex_none().font_family(MONO).text_size(11.5).child(String(trees.length)));
   }
 
-  // The space's color as the card wears it: the monogram (bg, fg), the git and
-  // worktree icons (mark) and the guide under an open repo (line).
-  inkOf(w, t) {
-    const color = (shared("space.colors") ?? {})[w.id] ?? "ansi6";
-    const fill = color.startsWith("#") ? color : (t[color] ?? t.accent);
-    // A color the space got as a name or an rgba hex can't take an alpha suffix.
-    if (!/^#[0-9a-f]{6}$/i.test(fill)) return { bg: fill, fg: t.canvas, mark: t.dim, line: t.input };
-    return { bg: fill + "3d", fg: lighten(fill, 0.15), mark: lighten(fill, 0.15), line: fill + "73" };
-  }
-
-  card({ w, i, g }, t, ps, all, trees, open) {
+  // A11: avatar, then two lines. Line 1: name, pin, and the branch, or how long the
+  // space has been in its state (the branch then moves to line 2). Line 2: the title,
+  // ↑↓± and the worktree button.
+  card(head, t, ps, trees, open, now) {
+    const { w, i } = head;
     const on = w.active;
-    const ink = this.inkOf(w, t);
+    const color = colorOf(w.id, t);
     const pinned = this.pins().includes(w.id);
     const hovered = this.hovered === w.id;
+    const under = on ? t.selected : hovered ? t.hover : t.chrome;
     const title = this.heading(w, ps);
     const quiet = !on && (!w.status || w.status === "idle");
-    // Its agents' programs, each once, in tab order.
-    const seen = new Set();
-    const progs = all.filter((a) => a.space === w.id && a.program?.icon && !seen.has(a.program.key) && seen.add(a.program.key)).map((a) => a.program).slice(0, 5);
-    const pin = div()
-      .id(`pin-${w.id}`)
-      .flex_none()
-      .p(2)
-      .rounded(R)
+    const branch = this.branchOf(head);
+    const since = sinceLabel(w, now);
+    const pin = div().id(`pin-${w.id}`).flex_none().p(2).rounded(R)
       .text_color(pinned ? t.muted : t.dim)
       .hover((s) => s.bg(t.input).text_color(bright(t)))
       .tooltip(pinned ? "Unpin" : "Pin to the top")
@@ -474,51 +566,69 @@ export default class Spaces extends View {
         cx.notify();
       })
       .child(svg(`${ICONS}/${pinned && hovered ? "pin-off" : "pin"}.svg`).size(12));
-    return v_flex()
-      .id(`space-${w.id}`)
-      .flex_none()
-      .px(10)
-      .py(7)
-      .my(2)
-      .gap(2)
-      .rounded(R)
-      .bg(on ? t.selected : t.chrome)
-      .when(!on, (el) => el.hover((s) => s.bg(t.hover)))
+    const card = h_flex().id(`space-${w.id}`).h(57).px(10).gap(12).items_center().rounded(R)
+      .bg(under)
       .map(this.press(w, i))
-      .child(h_flex().h(20).gap(7).items_center().text_size(12)
-        .child(h_flex().size(16).flex_none().rounded(R).bg(ink.bg).items_center().justify_center().text_size(9.5).line_height("16px").font_bold().text_color(ink.fg).child([...w.name][0]?.toUpperCase() ?? "?"))
-        .child(div().flex_1().min_w(0).truncate().text_color(on ? t.muted : t.dim).child(w.name))
-        .when(pinned || hovered, (el) => el.child(pin))
-        .when(Boolean(w.status), (el) => el.child(this.status(t, w.status, true))))
-      .when(Boolean(title), (el) => el.child(div().truncate().text_size(13).font_weight(quiet ? 500 : 600).text_color(quiet ? t.muted : bright(t)).child(title)))
-      .child(h_flex().h(18).gap(6).items_center().text_size(11.5).text_color(on ? t.muted : t.dim)
-        .child(svg(`${ICONS}/git-branch.svg`).size(12).flex_none().text_color(ink.mark))
-        .child(div().flex_1().min_w(0).truncate().child(g ? g.branch ?? "detached" : w.branch ?? "no repo"))
-        .children([this.changesLink(w, g, t)].filter(Boolean))
-        .children(progs.map((p) => icon(p, 14, t.muted)))
-        .when(trees.length > 0, (el) => el.child(this.wtButton({ w, g }, trees, open, t, ink))));
+      .child(avatar(t, w.name, color, 28, under, w.status))
+      .child(v_flex().flex_1().min_w(0).gap(3)
+        .child(h_flex().h(18).gap(8).items_center()
+          .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(on ? bright(t) : t.muted).child(w.name))
+          .when(pinned || hovered, (el) => el.child(pin))
+          .when(Boolean(since), (el) => el.child(div().flex_none().font_family(MONO).text_size(11).text_color(t[STATES[since.st].tone]).child(since.text)))
+          .when(!since && Boolean(branch), (el) => el.child(this.branchTag(t, color, branch))))
+        .child(h_flex().h(20).gap(8).items_center()
+          .child(div().flex_1().min_w(0).truncate().text_size(13).font_weight(500).text_color(quiet ? t.muted : bright(t)).child(title || " "))
+          .when(Boolean(since) && Boolean(branch), (el) => el.child(this.branchTag(t, color, branch)))
+          .children([this.changesLink(w, head.g, t)].filter(Boolean))
+          .when(trees.length > 0, (el) => el.child(this.wtButton(head, trees, open, t)))));
+    return div().h(61).px(8).pb(4).child(card);
+  }
+
+  // M1: the rail's avatars under the brand block, a + for a new space; the shown
+  // space on the selected fill. A space's dot is its most urgent, its worktrees' too.
+  rail(t) {
+    const groups = this.ordered();
+    const top = (b) => [b.head, ...b.trees].map((r) => r.w.status).reduce((m, s) => ((RANK[s] ?? 0) > (RANK[m] ?? 0) ? s : m), null);
+    this.want = 8 + groups.length * 40 + 32 + 8;
+    return v_flex().id("rail").size_full().min_h(0).bg(t.chrome).pt(8).pb(8).gap(4).items_center().overflow_y_scroll()
+      .children(groups.map((b) => {
+        const w = b.head.w, on = w.active || b.trees.some((r) => r.w.active);
+        const under = on ? t.selected : this.hovered === w.id ? t.hover : t.chrome;
+        return h_flex().id(`rail-${w.id}`).size(36).flex_none().rounded(6).items_center().justify_center().bg(under)
+          .tooltip(w.name)
+          .on_hover((over, cx) => { if (over) this.hovered = w.id; else if (this.hovered === w.id) this.hovered = null; cx.notify(); })
+          .on_click(() => run("space.select", { id: w.id }))
+          .on_mouse_down("right", () => this.menu(w))
+          .child(avatar(t, w.name, colorOf(w.id, t), 28, under, top(b)));
+      }))
+      .child(div().id("rail-new").size(28).flex_none().flex().items_center().justify_center().rounded(R).text_color(t.dim)
+        .hover((s) => s.bg(t.hover).text_color(bright(t))).tooltip("New space")
+        .on_click(() => run("space.new"))
+        .child(svg(`${ICONS}/plus.svg`).size(14)));
+  }
+
+  // Keeps every open space on a palette color (see assignColors). No spaces at all is
+  // herdr-app check's empty run, which writes the real shared state: nothing then.
+  syncColors(sp) {
+    if (!sp.length) return;
+    const saved = shared(COLORS) ?? {};
+    const ids = sp.map((s) => s.id);
+    const next = assignColors(ids, saved);
+    if (ids.some((id) => next[id] !== saved[id]) || Object.keys(saved).length !== ids.length) setShared(COLORS, next);
   }
 
   render() {
     const t = theme();
-    const palette = ["ansi6", "ansi3", "ansi5", "ansi2", "ansi1"];
-    const sp = spaces();
-    const ids = new Set(sp.map(p => p.id));
-    // Blue left the palette: a space that had it gets another.
-    const kept = Object.fromEntries(Object.entries(shared("space.colors") ?? {}).filter(([id, c]) => ids.has(id) && c !== "ansi4"));
-    let changed = Object.keys(kept).length !== Object.keys(shared("space.colors") ?? {}).length;
-    for (const p of sp) {
-      if (kept[p.id] || p.name === "~") continue;
-      const uses = c => Object.values(kept).filter(v => v === c).length;
-      kept[p.id] = palette.reduce((best, c) => uses(c) < uses(best) ? c : best);
-      changed = true;
-    }
-    // No spaces at all is herdr-app check's empty run, which writes the real shared state.
-    if (changed && sp.length) setShared("space.colors", kept);
-    if (narrow()) return div().size_full().bg(t.chrome);
+    this.syncColors(spaces());
+    if (narrow()) return this.rail(t);
+    const rows = this.rows(t);
+    this.want = rows.reduce((n, row) => n + row.h, 0);
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(13)
-      .child(v_flex().flex_1().min_h(0).px(6).pt(6).pb(10).overflow_y_scrollbar().mode("always")
+      .child(v_flex().id("spaces-box").relative().flex_1().min_h(0)
+        .on_hover((on, cx) => { this.lit = on; cx.notify(); })
         .on_mouse_up("left", (_e, cx) => { this.pressed = null; cx.notify(); })
-        .children(this.grouped(t)));
+        .child(v_flex().id("spaces-list").size_full().overflow_y_scroll()
+          .children(rows.map((row) => div().flex_none().h(row.h).child(row.el()))))
+        .child(thinBar("spaces-list", this.lit)));
   }
 }
