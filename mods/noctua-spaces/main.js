@@ -103,8 +103,9 @@ const colorOf = (id, t) => {
 
 // The space's avatar: its letters in its color lightened 12% on that color at 16% over
 // `under` (what the avatar sits on, which the seal's 2 px cut-out takes too), and the
-// state dot 3 px out of its corner. Idle and no agent: no dot.
-function avatar(t, name, color, size, under, st) {
+// state dot 3 px out of its corner. Idle and no agent: no dot. `pin`: an element for
+// the top left corner.
+function avatar(t, name, color, size, under, st, pin = null) {
   const k = size / 28;
   const d = Math.round(11 * k), off = Math.round(3 * k);
   const font = Math.round(11.5 * k * 2) / 2;
@@ -113,8 +114,14 @@ function avatar(t, name, color, size, under, st) {
     // (measured: 10 px above and 9 below in 28; the 16 px line box left them 1 px high).
     .child(div().line_height(`${font}px`).text_size(font).font_weight(600).text_color(lighten(color, 0.12)).child(initials(name)))
     .when(Boolean(st) && st !== "idle", (el) => el.child(h_flex().absolute().right(-off - 2).bottom(-off - 2).size(d + 4).rounded_full().bg(under).items_center().justify_center()
-      .child(dot(t, st, d, d))));
+      .child(dot(t, st, d, d))))
+    .when(Boolean(pin), (el) => el.child(pin));
 }
+
+// The pin on an avatar's top left corner, half out, no fill: white at 80% on a pinned
+// space, at 50% on another under the pointer.
+const PIN = 12;
+const pinInk = (t, pinned) => bright(t).slice(0, 7) + (pinned ? "cc" : "80");
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -555,9 +562,10 @@ export default class Spaces extends View {
     const quiet = !on && (!w.status || w.status === "idle");
     const branch = this.branchOf(head);
     const since = sinceLabel(w, now);
-    const pin = div().id(`pin-${w.id}`).flex_none().p(2).rounded(R)
-      .text_color(pinned ? t.muted : t.dim)
-      .hover((s) => s.bg(t.input).text_color(bright(t)))
+    // Hovering a pinned card turns its pin into pin-off: a click there unpins.
+    const pin = div().id(`pin-${w.id}`).absolute().left(-PIN / 2).top(-PIN / 2).size(PIN)
+      .text_color(pinInk(t, pinned))
+      .hover((s) => s.text_color(bright(t)))
       .tooltip(pinned ? "Unpin" : "Pin to the top")
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
       .on_click((_e, cx) => {
@@ -566,15 +574,14 @@ export default class Spaces extends View {
         this.hovered = null;
         cx.notify();
       })
-      .child(svg(`${ICONS}/${pinned && hovered ? "pin-off" : "pin"}.svg`).size(12));
+      .child(svg(`${ICONS}/${pinned && hovered ? "pin-off" : "pin"}.svg`).size(PIN));
     const card = h_flex().id(`space-${w.id}`).h(57).px(10).gap(12).items_center().rounded(R)
       .bg(under)
       .map(this.press(w, i))
-      .child(avatar(t, w.name, color, 28, under, w.status))
+      .child(avatar(t, w.name, color, 28, under, w.status, pinned || hovered ? pin : null))
       .child(v_flex().flex_1().min_w(0).gap(3)
         .child(h_flex().h(18).gap(8).items_center()
           .child(div().flex_1().min_w(0).truncate().text_size(12).text_color(on ? bright(t) : t.muted).child(w.name))
-          .when(pinned || hovered, (el) => el.child(pin))
           .when(Boolean(since), (el) => el.child(div().flex_none().font_family(MONO).text_size(11).text_color(t[STATES[since.st].tone]).child(since.text)))
           .when(!since && Boolean(branch), (el) => el.child(this.branchTag(t, color, branch))))
         .child(h_flex().h(20).gap(8).items_center()
@@ -589,6 +596,7 @@ export default class Spaces extends View {
   // space on the selected fill. A space's dot is its most urgent, its worktrees' too.
   rail(t) {
     const groups = this.ordered();
+    const pins = this.pins();
     const top = (b) => [b.head, ...b.trees].map((r) => r.w.status).reduce((m, s) => ((RANK[s] ?? 0) > (RANK[m] ?? 0) ? s : m), null);
     this.want = 8 + groups.length * 40 + 32 + 8;
     return v_flex().id("rail").size_full().min_h(0).bg(t.chrome).pt(8).pb(8).gap(4).items_center().overflow_y_scroll()
@@ -600,7 +608,9 @@ export default class Spaces extends View {
           .on_hover((over, cx) => { if (over) this.hovered = w.id; else if (this.hovered === w.id) this.hovered = null; cx.notify(); })
           .on_click(() => run("space.select", { id: w.id }))
           .on_mouse_down("right", () => this.menu(w))
-          .child(avatar(t, w.name, colorOf(w.id, t), 28, under, top(b)));
+          .child(avatar(t, w.name, colorOf(w.id, t), 28, under, top(b), pins.includes(w.id)
+            ? div().absolute().left(-PIN / 2).top(-PIN / 2).size(PIN).text_color(pinInk(t, true)).child(svg(`${ICONS}/pin.svg`).size(PIN))
+            : null));
       }))
       .child(div().id("rail-new").size(28).flex_none().flex().items_center().justify_center().rounded(R).text_color(t.dim)
         .hover((s) => s.bg(t.hover).text_color(bright(t))).tooltip("New space")
