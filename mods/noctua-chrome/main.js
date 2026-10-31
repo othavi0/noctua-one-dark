@@ -47,29 +47,29 @@ const openPicker = () => run("mod.open", { name: "picker" });
 
 export default class NoctuaChrome extends View {
   // A square icon button; presses stop here so the block's window drag doesn't take them.
-  button(id, icon, action, { size = 28, color, tip } = {}) {
+  button(id, icon, action, { size = 28, icon: glyph = 14, color, tip } = {}) {
     const t = theme();
     return div().id(id).size(size).flex_none().flex().items_center().justify_center().rounded(R)
       .text_color(color ?? t.dim).hover((s) => s.bg(t.hover).text_color(bright(t)))
       .when(Boolean(tip), (el) => el.tooltip(tip))
       .on_mouse_down("left", (_e, cx) => cx.stop_propagation()).on_click(action)
-      .child(svg(`${ICONS}/${icon}.svg`).size(14));
+      .child(svg(`${ICONS}/${icon}.svg`).size(glyph));
   }
 
-  // 28 px with a border on top, the same line as the status bar beside it.
+  // 36 px with a border on top, 8 px taller than the status bar beside it on purpose.
   footer(t, collapsed) {
     const bar = h_flex().size_full().bg(t.chrome).border_t(1).border_color(t.border);
     if (collapsed) return bar;
     const ready = Boolean(updates().app.ready);
     const machine = spaces().find((s) => s.active)?.machine ?? "This computer";
     const settingsButton = div().relative().flex_none()
-      .child(this.button("settings", "settings", () => run("app.settings"), { size: 24, tip: ready ? "Settings (update ready)" : "Settings" }))
+      .child(this.button("settings", "settings", () => run("app.settings"), { size: 30, icon: 18, tip: ready ? "Settings (update ready)" : "Settings" }))
       .when(ready, (el) => el.child(div().absolute().top(3).right(3).size(6).rounded(R).bg(t.accent)));
-    return bar.px(6).gap(2).items_center()
+    return bar.px(6).gap(4).items_center()
       .child(settingsButton)
-      .child(this.button("machines", "monitor", () => run("mod.open", { name: "machine-add" }), { size: 24, tip: "Machines" }))
+      .child(this.button("machines", "monitor", () => run("mod.open", { name: "machine-add" }), { size: 30, icon: 18, tip: "Machines" }))
       .child(div().flex_1())
-      .child(div().pr(8).min_w(0).truncate().text_size(12).text_color(t.dim).child(machine));
+      .child(div().pr(10).min_w(0).truncate().text_size(13).text_color(t.muted).child(machine));
   }
 
   // The rail, as in T3: the Herdr logo, which turns into the open button under the

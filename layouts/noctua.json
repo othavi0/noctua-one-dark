@@ -73,7 +73,7 @@
           "id": "sidebar-footer",
           "type": "block",
           "size": {
-            "px": 28
+            "px": 36
           },
           "content": {
             "mod": "noctua-chrome",
