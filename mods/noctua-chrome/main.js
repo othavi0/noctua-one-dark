@@ -1,12 +1,12 @@
 // Noctua's sidebar ends. Top (the "brand" block, 66 px): the Herdr logo and the fold
 // button, then Search and the filter (both the picker) and + for a new space. New
 // agents start from the + on the tab bar. With props().footer: Settings, Machines and
-// the machine name; on the rail only the top shows.
+// the shown space's machine; on the rail only the top shows.
 // Corners are 4 px.
 
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme, run, props, window, shared, setShared, updates, layout, keys, settings } from "herdr";
+import { theme, run, props, window, shared, setShared, updates, layout, keys, settings, spaces } from "herdr";
 
 const ICONS = "mods/noctua-chrome";
 const R = 4;
@@ -56,17 +56,20 @@ export default class NoctuaChrome extends View {
       .child(svg(`${ICONS}/${icon}.svg`).size(14));
   }
 
+  // 28 px with a border on top, the same line as the status bar beside it.
   footer(t, collapsed) {
-    if (collapsed) return div().size_full().bg(t.chrome);
+    const bar = h_flex().size_full().bg(t.chrome).border_t(1).border_color(t.border);
+    if (collapsed) return bar;
     const ready = Boolean(updates().app.ready);
+    const machine = spaces().find((s) => s.active)?.machine ?? "This computer";
     const settingsButton = div().relative().flex_none()
-      .child(this.button("settings", "settings", () => run("app.settings"), { tip: ready ? "Settings (update ready)" : "Settings" }))
-      .when(ready, (el) => el.child(div().absolute().top(5).right(5).size(6).rounded(R).bg(t.accent)));
-    return h_flex().size_full().bg(t.chrome).border_t(1).border_color(t.border).p(6).gap(2).items_center()
+      .child(this.button("settings", "settings", () => run("app.settings"), { size: 24, tip: ready ? "Settings (update ready)" : "Settings" }))
+      .when(ready, (el) => el.child(div().absolute().top(3).right(3).size(6).rounded(R).bg(t.accent)));
+    return bar.px(6).gap(2).items_center()
       .child(settingsButton)
-      .child(this.button("machines", "monitor", () => run("mod.open", { name: "machine-add" }), { tip: "Machines" }))
+      .child(this.button("machines", "monitor", () => run("mod.open", { name: "machine-add" }), { size: 24, tip: "Machines" }))
       .child(div().flex_1())
-      .child(div().pr(8).text_size(11.5).text_color(t.dim).child("This computer"));
+      .child(div().pr(8).min_w(0).truncate().text_size(12).text_color(t.dim).child(machine));
   }
 
   // The rail, as in T3: the Herdr logo, which turns into the open button under the

@@ -73,7 +73,7 @@
           "id": "sidebar-footer",
           "type": "block",
           "size": {
-            "px": 44
+            "px": 28
           },
           "content": {
             "mod": "noctua-chrome",
@@ -170,10 +170,10 @@
           "id": "status",
           "type": "block",
           "size": {
-            "px": 24
+            "px": 28
           },
           "content": {
-            "mod": "workspace-status"
+            "mod": "noctua-status"
           }
         }
       ]
