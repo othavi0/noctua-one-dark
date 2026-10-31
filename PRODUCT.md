@@ -39,6 +39,8 @@ The Herdr counterpart of an existing, published Omarchy theme: its terminal keep
 - Name: Noctua (noctua-one-dark).
 - Palette source of truth: `themes/noctua.json`, neutral graphite chosen on 30 October 2026 (canvas `#121212`, chrome `#1a1a1a`, background `#212121`, hover `#262626`, selected `#363636`, text `#c4c4c4` / `#d6d6d6` / `#8f8f8f`, accent light gray `#e0e0e0`). No blue anywhere in the window chrome; status colors (working `#e5c07b`, blocked `#e06c75`, done `#98c379`) and the terminal's ANSI stay One Dark from `~/.config/omarchy/themes/noctua/colors.toml`. Dim text `#8f8f8f` is 5,4:1 on chrome.
 - Soft corners: a light 4 px radius on controls and selections, never on the pane edges that touch the window.
+- Space colors, chosen on 31 October 2026: Sanzo Wada's "Wada pó", 12 powdery colors from *A Dictionary of Color Combinations* (`#dda8c8` first), each space on its own one while there are 12 or fewer. They mark only the space's avatar and its branch icon; state keeps the One Dark status colors.
+- One state mark: a red dot (blocked), a green dot (done), a turning yellow arc (working), a gray ring (idle), the same on the space's avatar, the tabs, the pane headers and the agents list.
 
 ## Evidence on Hand
 
@@ -48,6 +50,6 @@ The Herdr counterpart of an existing, published Omarchy theme: its terminal keep
 ## Product Principles
 
 1. Match the Omarchy Noctua desktop before adding anything of its own.
-2. Agent status first: a blocked agent must be visible from anywhere in the window.
+2. Agent status first: a blocked agent must be visible from anywhere in the window, the folded sidebar (the rail's avatars) included, with how long it has waited.
 3. Clean over decorated: thin rules, flat surfaces, no ornament that doesn't carry state.
 4. Stay inside what Herdr layouts support natively; a cloned mod has to earn its maintenance.
