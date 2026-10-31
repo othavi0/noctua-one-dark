@@ -10,6 +10,9 @@ const ICONS = "mods/noctua-chrome";
 const R = 4;
 // { space, panel, at }: show that panel when that space comes into view.
 const OPEN_PANEL = "noctua.panel.open";
+// { [space id]: { add, del } }, written by noctua-spaces from its git look.
+const LINES = "noctua.changes.lines";
+const MONO = "Geist Mono";
 const bright = (t) => (settings()?.dark === false ? t.foreground : t.ansi15);
 
 // Agent state, the same table in every Noctua mod: its theme color, the color of
@@ -64,7 +67,7 @@ export default class Tabs extends View {
   syncPanel(space, panel, body, enabled) {
     if (!space || !panel) return;
     const now = panel.hidden ? null : body?.active ?? null;
-    // A panel another mod asked for (noctua-spaces' ±), applied once on the render that
+    // A panel another mod asked for (noctua-spaces' ↑↓), applied once on the render that
     // first sees it: that write and the space switch reach this mod in either order.
     const asked = shared(OPEN_PANEL);
     if (asked?.space === space.id && asked.at !== this.asked && Date.now() - asked.at < 2000 && enabled.includes(asked.panel)) {
@@ -153,7 +156,14 @@ export default class Tabs extends View {
     const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = shared("workspace.panels") ?? ["files", "changes"];
     this.syncPanel(space, panel, body, enabled);
-    const panelButton = (id, label, icon) => {
+    // Changes says how many lines the shown space adds and removes, when it has any.
+    const lines = space ? shared(LINES)?.[space.id] : null;
+    const tally = lines?.add || lines?.del
+      ? h_flex().ml(2).gap(5).flex_none().font_family(MONO).text_size(11.5)
+        .when(lines.add > 0, el => el.child(div().text_color(t.done).child(`+${lines.add}`)))
+        .when(lines.del > 0, el => el.child(div().text_color(t.blocked).child(`−${lines.del}`)))
+      : null;
+    const panelButton = (id, label, icon, tail = null) => {
       const on = panel && !panel.hidden && body?.active === id;
       return h_flex().id(`panel-${id}`).h(28).px(10).gap(6).flex_none().items_center().rounded(R)
         .text_size(12.5).border(1).border_color(on ? t.selected : t.chrome).bg(on ? t.selected : t.chrome).text_color(on ? hi : t.muted)
@@ -161,7 +171,7 @@ export default class Tabs extends View {
         .on_click(() => {
           if (on) run("layout.hide", { id: "panel" });
           else { run("layout.select", { stack: "panel-body", child: id }); run("layout.show", { id: "panel" }); }
-        }).child(svg(`${ICONS}/${icon}.svg`).size(14)).child(label);
+        }).child(svg(`${ICONS}/${icon}.svg`).size(14)).child(label).children([tail].filter(Boolean));
     };
     return h_flex().size_full().min_w(0).items_center().bg(t.chrome)
       .on_mouse_up("left", () => { this.pressed = null; })
@@ -173,7 +183,7 @@ export default class Tabs extends View {
       .child(line(h_flex().h_full().flex_none().pr(6).gap(2).items_center())
         .child(button("tab-new", svg(`${ICONS}/plus.svg`).size(14), () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 }), "New tab"))
         .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "files")))
-        .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "git-compare")))
+        .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "git-compare", tally)))
         .when(window()?.buttons, el => el.child(button("minimize", svg(`${ICONS}/minus.svg`).size(14), () => run("window.minimize")))
           .child(button("maximize", svg(`${ICONS}/square.svg`).size(12), () => run("window.maximize")))
           .child(button("close-window", svg(`${ICONS}/x.svg`).size(14), () => run("window.close")))));
