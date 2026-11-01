@@ -52,7 +52,7 @@ const elapsed = (ms) => {
 };
 
 // Two letters: the first two words' initials, or one word's first letter and the
-// first consonant after it (notas: NT, destrinchando: DS).
+// first consonant after it (notes: NT, dashboard: DS).
 function initials(name) {
   const words = (name ?? "").split(/[-_.\s]+/).filter(Boolean);
   if (!words.length) return "?";
@@ -62,7 +62,7 @@ function initials(name) {
   return (w[0] + (c ? c[0] : w[1] ?? "")).toUpperCase();
 }
 
-// "Wada pó", from Sanzo Wada's A Dictionary of Color Combinations, in the order
+// 12 powdery colors from Sanzo Wada's A Dictionary of Color Combinations, in the order
 // spaces take them: each next one the farthest in hue from those before it.
 const PALETTE = ["#dda8c8", "#78b79e", "#d6a582", "#a5ae77", "#aa9fd3", "#8fc7c6", "#b39fbf", "#bab37c", "#95c9a4", "#caa1cc", "#78c1b6", "#e4ac92"];
 const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
