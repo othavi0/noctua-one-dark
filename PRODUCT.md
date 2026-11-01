@@ -20,11 +20,11 @@ A Herdr app layout with Noctua themes, consistent with the author's Omarchy them
 
 ## Positioning
 
-The Herdr counterpart of an existing, published Omarchy theme: its terminal keeps the One Dark ANSI colors, and the window around it is neutral graphite with no blue, so a Noctua desktop and its Herdr window match.
+The Herdr counterpart of an existing, published Omarchy theme: its terminal keeps the ANSI colors of the Omarchy Noctua theme, and the window around it is neutral graphite with no blue, so a Noctua desktop and its Herdr window match.
 
 ## Operating Context
 
-- Lives in its own public repo, `othavi0/noctua-one-dark`, with the GitHub topic `herdr-layout`, a `RECIPE.md` and a `preview.png`, per `~/.config/herdr-app/AGENTS.md`.
+- Lives in its own public repo, `othavi0/noctua-layout`, with the GitHub topic `herdr-layout`, a `RECIPE.md` and a `preview.png`, per `~/.config/herdr-app/AGENTS.md`.
 - Installed into `~/.config/herdr-app/` next to Herdr's shipped layouts; switched with `ctrl-shift-l`.
 - The Omarchy theme already themes the herdr TUI through `herdr.toml`; this project covers the Herdr desktop app.
 
@@ -36,10 +36,10 @@ The Herdr counterpart of an existing, published Omarchy theme: its terminal keep
 
 ## Brand Commitments
 
-- Name: Noctua (noctua-one-dark).
-- Palette source of truth: `themes/noctua.json`, neutral graphite chosen on 30 October 2026 (canvas `#121212`, chrome `#1a1a1a`, background `#212121`, hover `#262626`, selected `#363636`, text `#c4c4c4` / `#d6d6d6` / `#8f8f8f`, accent light gray `#e0e0e0`). No blue anywhere in the window chrome; status colors (working `#e5c07b`, blocked `#e06c75`, done `#98c379`) and the terminal's ANSI stay One Dark from `~/.config/omarchy/themes/noctua/colors.toml`. Dim text `#8f8f8f` is 5,4:1 on chrome.
+- Name: Noctua; the project and its repo are Noctua Layout (`noctua-layout`).
+- Palette source of truth: `themes/noctua.json`, neutral graphite chosen on 30 October 2026 (canvas `#121212`, chrome `#1a1a1a`, background `#212121`, hover `#262626`, selected `#363636`, text `#c4c4c4` / `#d6d6d6` / `#8f8f8f`, accent light gray `#e0e0e0`). No blue anywhere in the window chrome; status colors (working `#e5c07b`, blocked `#e06c75`, done `#98c379`) and the terminal's ANSI come from the Omarchy Noctua theme, `~/.config/omarchy/themes/noctua/colors.toml`. Dim text `#8f8f8f` is 5,4:1 on chrome.
 - Soft corners: a light 4 px radius on controls and selections, never on the pane edges that touch the window.
-- Space colors, chosen on 31 October 2026: Sanzo Wada's "Wada pó", 12 powdery colors from *A Dictionary of Color Combinations* (`#dda8c8` first), each space on its own one while there are 12 or fewer. They mark only the space's avatar and its branch icon; state keeps the One Dark status colors.
+- Space colors, chosen on 31 October 2026: Sanzo Wada's "Wada pó", 12 powdery colors from *A Dictionary of Color Combinations* (`#dda8c8` first), each space on its own one while there are 12 or fewer. They mark only the space's avatar and its branch icon; state keeps the status colors above (working, blocked, done).
 - One state mark: a red dot (blocked), a green dot (done), a turning yellow arc (working), a gray ring (idle), the same on the space's avatar, the tabs, the pane headers and the agents list.
 
 ## Evidence on Hand
